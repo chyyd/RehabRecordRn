@@ -1,79 +1,188 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 康复科治疗记录系统 - React Native 原生应用
 
-# Getting Started
+虎林市中医医院康复科治疗记录系统 Android 原生应用
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+## 项目简介
 
-## Step 1: Start the Metro Server
+本应用是基于 React Native 开发的 Android 原生应用，为虎林市中医医院康复科提供治疗记录电子化管理服务。应用支持离线工作，提供流畅的原生体验。
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+## 核心功能
 
-To start Metro, run the following command from the _root_ of your React Native project:
+- ✅ **用户认证**：安全的登录认证系统，支持多种角色
+- ✅ **患者管理**：患者列表、搜索、详情查看
+- ✅ **治疗记录**：创建记录、计时、签名确认
+- ✅ **离线支持**：离线创建记录，联网自动同步
+- ✅ **历史查询**：按患者查看历史治疗记录
+- ✅ **扫码功能**：快速定位患者（计划中）
+
+## 技术栈
+
+- **框架**：React Native 0.73.6
+- **语言**：TypeScript 5.4.5
+- **导航**：@react-navigation 6.x
+- **UI 组件**：React Native Paper 5.x
+- **状态管理**：Zustand 4.x
+- **本地存储**：AsyncStorage
+- **网络请求**：Axios
+- **签名组件**：react-native-signature-canvas
+
+## 项目结构
+
+```
+RehabRecordRn/
+├── android/                 # Android 原生代码
+├── ios/                     # iOS 代码（可选）
+├── src/
+│   ├── components/          # 可复用组件
+│   │   ├── SignaturePad/    # 电子签名
+│   │   └── SyncStatusBar/   # 同步状态栏
+│   ├── screens/             # 页面组件
+│   │   ├── auth/            # 认证流程
+│   │   ├── patients/        # 患者管理
+│   │   ├── records/         # 治疗记录
+│   │   ├── scanner/         # 扫码
+│   │   └── home/            # 工作台
+│   ├── navigation/          # 导航配置
+│   ├── stores/              # 状态管理
+│   ├── services/            # 业务服务
+│   │   ├── api/             # API 接口
+│   │   ├── storage/         # 本地存储
+│   │   └── sync/            # 数据同步
+│   ├── hooks/               # 自定义 Hooks
+│   ├── utils/               # 工具函数
+│   ├── types/               # 类型定义
+│   └── assets/              # 静态资源
+├── App.tsx                  # 应用入口
+├── package.json             # 依赖配置
+└── tsconfig.json            # TypeScript 配置
+```
+
+## 快速开始
+
+### 环境要求
+
+- Node.js >= 18.x
+- npm 或 yarn
+- JDK 11+
+- Android Studio
+- Android SDK (API Level 24+)
+
+### 安装依赖
 
 ```bash
-# using npm
+npm install
+```
+
+### 运行开发环境
+
+1. **启动 Android 模拟器或连接真机**
+
+2. **启动 Metro 服务**
+```bash
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Start your Application
-
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
-
-### For Android
-
+3. **运行 Android 应用**
 ```bash
-# using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### For iOS
+### 调试
+
+- **Chrome DevTools**: 在应用中按 `Ctrl + M` (模拟器) 或摇动设备，选择 "Debug"
+- **React Native Debugger**: 推荐使用 React Native Debugger 进行调试
+- **日志查看**: `adb logcat *:S ReactNative:V ReactNativeJS:V`
+
+## 构建 Release 版本
+
+### 生成签名密钥
 
 ```bash
-# using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+keytool -genkeypair -v -storetype PKCS12 -keystore rehab-release-key.keystore -alias rehab-key-alias -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+### 配置签名
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+将密钥文件放置在 `android/app/` 目录下，并更新 `android/gradle.properties`：
 
-## Step 3: Modifying your App
+```properties
+MYAPP_RELEASE_STORE_FILE=rehab-release-key.keystore
+MYAPP_RELEASE_KEY_ALIAS=rehab-key-alias
+MYAPP_RELEASE_STORE_PASSWORD=*****
+MYAPP_RELEASE_KEY_PASSWORD=*****
+```
 
-Now that you have successfully run the app, let's modify it.
+### 构建 APK
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+```bash
+cd android
+./gradlew assembleRelease
+```
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+生成的 APK 位于：`android/app/build/outputs/apk/release/app-release.apk`
 
-## Congratulations! :tada:
+## 开发指南
 
-You've successfully run and modified your React Native App. :partying_face:
+### 代码规范
 
-### Now what?
+- 使用 TypeScript 编写类型安全的代码
+- 遵循 ESLint 配置的代码风格
+- 组件命名使用 PascalCase
+- 文件命名使用 PascalCase（组件）或 camelCase（工具）
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+### 状态管理
 
-# Troubleshooting
+使用 Zustand 进行状态管理，主要的 Store：
+- `authStore`: 认证状态
+- `patientStore`: 患者数据
+- `recordStore`: 治疗记录
+- `syncStore`: 数据同步
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+### API 调用
 
-# Learn More
+所有 API 调用通过 `services/api/` 中的接口进行，自动处理 Token 注入和错误处理。
 
-To learn more about React Native, take a look at the following resources:
+### 离线同步
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- 应用支持离线创建治疗记录
+- 联网后自动同步到服务器
+- 同步状态在顶部状态栏显示
+
+## 默认配置
+
+### API 地址
+
+- **开发环境**: `http://10.0.2.2:3000` (Android 模拟器)
+- **生产环境**: 需在 `src/utils/constants.ts` 中配置
+
+### 测试账号
+
+| 角色 | 用户名 | 密码 |
+|------|--------|------|
+| 管理员 | admin | admin123 |
+| 治疗师 | therapist | therapist123 |
+| 医师 | doctor | doctor123 |
+| 护士 | nurse | nurse123 |
+
+## 常见问题
+
+### Q: 如何修改 API 地址？
+
+A: 编辑 `src/utils/constants.ts` 中的 `API_CONFIG.BASE_URL`
+
+### Q: 如何清除应用数据？
+
+A: 在应用设置中清除数据，或重新安装应用
+
+### Q: 如何查看离线同步状态？
+
+A: 顶部状态栏显示当前在线状态和同步进度
+
+## 技术支持
+
+- 项目仓库: [GitHub](https://github.com/chyyd/rehab-record-system)
+- 问题反馈: [Issues](https://github.com/chyyd/rehab-record-system/issues)
+
+## 版权信息
+
+© 2025 虎林市中医医院康复科
