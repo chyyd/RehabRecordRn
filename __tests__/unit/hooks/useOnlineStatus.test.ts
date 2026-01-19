@@ -7,15 +7,15 @@ import { renderHook, act, waitFor } from '@testing-library/react-native'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 // Mock @react-native-community/netinfo
-jest.mock('@react-native-community/netinfo', () => ({
-  NetInfo: {
-    fetch: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-  },
-}))
+const mockNetInfo = {
+  fetch: jest.fn(),
+  addEventListener: jest.fn(),
+}
 
-const mockNetInfo = require('@react-native-community/netinfo').NetInfo
+jest.mock('@react-native-community/netinfo', () => ({
+  default: mockNetInfo,
+  NetInfo: mockNetInfo,
+}))
 
 describe('useOnlineStatus Hook', () => {
   beforeEach(() => {

@@ -3,7 +3,7 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { API_CONFIG, STORAGE_KEYS } from '@/utils/constants'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AsyncStorage } from '@react-native-async-storage/async-storage'
 import { NavigationContainerRef } from '@react-navigation/native'
 import { createLogger } from '@/utils/logger'
 import { retryWithBackoff } from '@/utils/retry'

@@ -5,12 +5,14 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react-native'
 import { useOfflineData } from '@/hooks/useOfflineData'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AsyncStorage } from '@react-native-async-storage/async-storage'
 
 // Mock useSyncStore
+const mockAddToSyncQueue = jest.fn().mockResolvedValue(undefined)
+
 jest.mock('@/stores/syncStore', () => ({
   useSyncStore: () => ({
-    addToSyncQueue: jest.fn().mockResolvedValue(undefined),
+    addToSyncQueue: mockAddToSyncQueue,
     isOnline: true,
   }),
 }))
@@ -38,8 +40,7 @@ describe('useOfflineData Hook', () => {
       expect(AsyncStorage.setItem).toHaveBeenCalled()
 
       // 验证 addToSyncQueue 被调用
-      const { useSyncStore } = require('@/stores/syncStore')
-      expect(useSyncStore().addToSyncQueue).toHaveBeenCalledWith({
+      expect(mockAddToSyncQueue).toHaveBeenCalledWith({
         collection: 'patients',
         type: 'create',
         data: { id: 1, name: '张三' },
@@ -84,11 +85,10 @@ describe('useOfflineData Hook', () => {
     })
 
     it('应该在线时立即触发同步（如果启用）', async () => {
-      const { useSyncStore } = require('@/stores/syncStore')
       let syncTriggered = false
 
       // Mock addToSyncQueue 来检测同步是否被触发
-      useSyncStore().addToSyncQueue.mockImplementation(() => {
+      mockAddToSyncQueue.mockImplementation(() => {
         syncTriggered = true
         return Promise.resolve()
       })

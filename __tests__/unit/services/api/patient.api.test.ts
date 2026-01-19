@@ -191,10 +191,14 @@ describe('Patient API', () => {
 
       mockAxios.onPut('/patients/1').reply(200, updatedPatient)
 
-      const result = await patientApi.updatePatient(1, updateData)
+      const result = await patientApi.updatePatient({ id: 1, ...updateData })
 
       expect(result).toEqual(updatedPatient)
-      expect(mockAxios.history.get[0].data).toEqual(updateData)
+      // mockAxios.history.put[0].data是JSON字符串，需要解析
+      expect(JSON.parse(mockAxios.history.put[0].data)).toEqual({
+        id: 1,
+        ...updateData
+      })
     })
 
     it('应该处理更新不存在的患者', async () => {
@@ -203,7 +207,7 @@ describe('Patient API', () => {
       })
 
       await expect(
-        patientApi.updatePatient(999, updateData)
+        patientApi.updatePatient({ id: 999, ...updateData })
       ).rejects.toMatchObject({
         statusCode: 404,
       })
@@ -212,11 +216,11 @@ describe('Patient API', () => {
 
   describe('deletePatient 方法', () => {
     it('应该成功删除患者', async () => {
-      mockAxios.onDelete('/patients/1').reply(204)
+      mockAxios.onDelete('/patients/1').reply(200, null)
 
       await patientApi.deletePatient(1)
 
-      expect(mockAxios.history.get[0].url).toBe('/patients/1')
+      expect(mockAxios.history.delete[0].url).toBe('/patients/1')
     })
 
     it('应该处理删除失败', async () => {
