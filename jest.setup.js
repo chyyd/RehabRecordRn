@@ -71,6 +71,28 @@ jest.mock('react-native-paper', () => {
   }
 })
 
+// Mock @react-native-community/netinfo
+jest.mock('@react-native-community/netinfo', () => {
+  return {
+    default: {
+      fetch: jest.fn(() => Promise.resolve({
+        isConnected: true,
+        isInternetReachable: true,
+      })),
+      addEventListener: jest.fn(() => jest.fn()),
+    },
+  }
+})
+
+// Mock syncStore (useOnlineStatus依赖它)
+jest.mock('@/stores/syncStore', () => ({
+  useSyncStore: () => ({
+    setOnlineStatus: jest.fn(),
+    addToSyncQueue: jest.fn().mockResolvedValue(undefined),
+    isOnline: true,
+  }),
+}))
+
 // 全局测试前设置
 beforeEach(() => {
   // 清除所有 mock 的调用记录

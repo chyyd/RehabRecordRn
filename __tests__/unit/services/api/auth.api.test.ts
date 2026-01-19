@@ -64,7 +64,10 @@ describe('Auth API', () => {
     it('应该处理网络错误', async () => {
       mockAxios.onPost('/auth/login').networkError()
 
-      await expect(authApi.login(loginData)).rejects.toThrow()
+      // 由于重试机制，网络错误会重试3次，最终仍会失败
+      await expect(authApi.login(loginData)).rejects.toMatchObject({
+        message: '网络连接失败',
+      })
     })
   })
 

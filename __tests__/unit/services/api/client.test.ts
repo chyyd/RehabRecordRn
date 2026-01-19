@@ -165,7 +165,7 @@ describe('ApiClient', () => {
       mockAxios.onGet('/test').timeout()
 
       await expect(apiClient.get('/test')).rejects.toMatchObject({
-        message: expect.stringContaining('timeout'),
+        message: '请求超时，请检查网络连接',
       })
     })
   })

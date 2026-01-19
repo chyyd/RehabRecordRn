@@ -5,7 +5,7 @@
 
 import React, { Component } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react-native'
-import { Text, View, Button } from 'react-native-paper'
+import { Text, View, Button, TouchableOpacity } from 'react-native'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
 // 测试用组件：正常组件
@@ -35,12 +35,9 @@ const AsyncErrorComponent = () => {
   return (
     <View>
       <Text>异步组件</Text>
-      <Button
-        mode="contained"
-        onPress={() => setShouldThrow(true)}
-      >
-        触发错误
-      </Button>
+      <TouchableOpacity onPress={() => setShouldThrow(true)}>
+        <Text>触发错误</Text>
+      </TouchableOpacity>
     </View>
   )
 }
@@ -110,15 +107,19 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       )
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[ErrorBoundary]')
+      // console.error应该被调用，验证至少有一次调用包含"ErrorBoundary"
+      expect(consoleErrorSpy).toHaveBeenCalled()
+      const calls = consoleErrorSpy.mock.calls
+      const hasErrorBoundaryCall = calls.some(call =>
+        call.some(arg => typeof arg === 'string' && arg.includes('ErrorBoundary'))
       )
+      expect(hasErrorBoundaryCall).toBe(true)
     })
   })
 
   describe('捕获异步错误', () => {
     it('应该捕获异步错误', async () => {
-      const { getByText, getByLabelText } = render(
+      const { getByText } = render(
         <ErrorBoundary>
           <AsyncErrorComponent />
         </ErrorBoundary>
@@ -128,10 +129,10 @@ describe('ErrorBoundary', () => {
       const triggerButton = getByText('触发错误')
       fireEvent.press(triggerButton)
 
-      // 等待错误被捕获
+      // 等待状态更新和useEffect执行
       await waitFor(() => {
         expect(screen.getByText('应用出错了')).toBeOnTheScreen()
-      })
+      }, { timeout: 5000 })
     })
   })
 

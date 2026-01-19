@@ -7,11 +7,6 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react-native'
 import SignaturePad from '@/components/SignaturePad'
 
-// Mock react-native-signature-canvas
-jest.mock('react-native-signature-canvas', () => {
-  return jest.fn(() => null)
-})
-
 describe('SignaturePad 组件', () => {
   const mockOnSave = jest.fn()
   const mockOnClear = jest.fn()
