@@ -4,8 +4,8 @@
  */
 
 import React, { Component } from 'react'
-import { render, screen, fireEvent } from '@testing-library/react-native'
-import { Text, View, Button, TouchableOpacity } from 'react-native'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native'
+import { Text, View, TouchableOpacity } from 'react-native'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
 // 测试用组件：正常组件

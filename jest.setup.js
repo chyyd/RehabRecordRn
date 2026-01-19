@@ -71,18 +71,8 @@ jest.mock('react-native-paper', () => {
   }
 })
 
-// Mock @react-native-community/netinfo
-jest.mock('@react-native-community/netinfo', () => {
-  return {
-    default: {
-      fetch: jest.fn(() => Promise.resolve({
-        isConnected: true,
-        isInternetReachable: true,
-      })),
-      addEventListener: jest.fn(() => jest.fn()),
-    },
-  }
-})
+// 注意: 不在这里全局mock NetInfo，因为它会干扰useOnlineStatus.test.ts
+// 各个需要NetInfo的测试文件应该自己mock
 
 // 注意: 不在这里全局mock syncStore，因为它会干扰syncStore.test.ts
 // 各个需要syncStore的测试文件应该自己mock
