@@ -138,21 +138,34 @@ describe('ErrorBoundary', () => {
 
   describe('重置功能', () => {
     it('应该能重置错误状态', () => {
-      const { rerender } = render(
-        <ErrorBoundary>
-          <ThrowErrorComponent />
-        </ErrorBoundary>
-      )
+      // 创建一个包装组件来控制ErrorBoundary的重新挂载
+      const Wrapper = ({ children }: { children: React.ReactNode }) => {
+        const [key, setKey] = React.useState(0)
+        const [shouldShowNormal, setShouldShowNormal] = React.useState(false)
+
+        return (
+          <>
+            <ErrorBoundary key={key}>
+              {shouldShowNormal ? <NormalComponent /> : <ThrowErrorComponent />}
+            </ErrorBoundary>
+            <TouchableOpacity onPress={() => {
+              setKey(prev => prev + 1)
+              setShouldShowNormal(true)
+            }}>
+              <Text>重置并显示正常组件</Text>
+            </TouchableOpacity>
+          </>
+        )
+      }
+
+      render(<Wrapper />)
 
       // 确认错误界面显示
       expect(screen.getByText('应用出错了')).toBeOnTheScreen()
 
-      // 创建正常组件来替换错误组件
-      rerender(
-        <ErrorBoundary>
-          <NormalComponent />
-        </ErrorBoundary>
-      )
+      // 点击重置按钮
+      const resetButton = screen.getByText('重置并显示正常组件')
+      fireEvent.press(resetButton)
 
       // 验证正常组件显示
       expect(screen.getByText('正常组件')).toBeOnTheScreen()

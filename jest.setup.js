@@ -77,6 +77,28 @@ jest.mock('react-native-paper', () => {
 // 注意: 不在这里全局mock syncStore，因为它会干扰syncStore.test.ts
 // 各个需要syncStore的测试文件应该自己mock
 
+// Mock react-native-gesture-handler for navigation
+jest.mock('react-native-gesture-handler', () => {
+  const View = require('react-native/Libraries/Components/View/View')
+  return {
+    Direction: {},
+    FlingGestureHandler: View,
+    GestureDetector: View,
+    GestureHandlerRootView: View,
+    NativeViewGestureHandler: View,
+    PanGestureHandler: View,
+    PinchGestureHandler: View,
+    RawButton: View,
+    RootView: View,
+    State: {},
+    TapGestureHandler: View,
+    ToolbarAndroid: View,
+    createNativeWrapper: jest.fn(),
+    Directions: {},
+  }
+})
+
+
 // 全局测试前设置
 beforeEach(() => {
   // 清除所有 mock 的调用记录
