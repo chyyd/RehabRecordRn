@@ -66,7 +66,7 @@ describe('Auth API', () => {
 
       // 由于重试机制，网络错误会重试3次，最终仍会失败
       await expect(authApi.login(loginData)).rejects.toMatchObject({
-        message: '网络连接失败',
+        message: 'Network Error',  // axios-mock-adapter的networkError消息
       })
     })
   })

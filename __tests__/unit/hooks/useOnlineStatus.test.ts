@@ -17,6 +17,13 @@ jest.mock('@react-native-community/netinfo', () => ({
   },
 }))
 
+// Mock syncStore (useOnlineStatus依赖它)
+jest.mock('@/stores/syncStore', () => ({
+  useSyncStore: () => ({
+    setOnlineStatus: jest.fn(),
+  }),
+}))
+
 describe('useOnlineStatus Hook', () => {
   beforeEach(() => {
     jest.clearAllMocks()

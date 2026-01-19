@@ -84,14 +84,8 @@ jest.mock('@react-native-community/netinfo', () => {
   }
 })
 
-// Mock syncStore (useOnlineStatus依赖它)
-jest.mock('@/stores/syncStore', () => ({
-  useSyncStore: () => ({
-    setOnlineStatus: jest.fn(),
-    addToSyncQueue: jest.fn().mockResolvedValue(undefined),
-    isOnline: true,
-  }),
-}))
+// 注意: 不在这里全局mock syncStore，因为它会干扰syncStore.test.ts
+// 各个需要syncStore的测试文件应该自己mock
 
 // 全局测试前设置
 beforeEach(() => {
