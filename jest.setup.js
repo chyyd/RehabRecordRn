@@ -62,8 +62,9 @@ jest.mock('@react-navigation/native', () => ({
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
   const React = require('react')
+  const actualPaper = jest.requireActual('react-native-paper')
   return {
-    ...require('react-native-paper'),
+    ...actualPaper,
     Portal: ({ children }) => children,
     Dialog: ({ visible, onDismiss, children }) =>
       visible ? React.createElement('div', { onDismiss }, children) : null,

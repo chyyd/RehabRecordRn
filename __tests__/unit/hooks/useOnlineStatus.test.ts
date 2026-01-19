@@ -7,14 +7,14 @@ import { renderHook, act, waitFor } from '@testing-library/react-native'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 // Mock @react-native-community/netinfo
-const mockNetInfo = {
-  fetch: jest.fn(),
-  addEventListener: jest.fn(),
-}
+const mockFetch = jest.fn()
+const mockAddEventListener = jest.fn()
 
 jest.mock('@react-native-community/netinfo', () => ({
-  default: mockNetInfo,
-  NetInfo: mockNetInfo,
+  default: {
+    fetch: mockFetch,
+    addEventListener: mockAddEventListener,
+  },
 }))
 
 describe('useOnlineStatus Hook', () => {
@@ -29,7 +29,7 @@ describe('useOnlineStatus Hook', () => {
   describe('基础功能', () => {
     it('应该返回初始在线状态', async () => {
       // Mock NetInfo.fetch 返回在线状态
-      mockNetInfo.fetch.mockResolvedValue({
+      mockFetch.mockResolvedValue({
         isInternetReachable: true,
         isConnected: true,
       })
@@ -41,12 +41,12 @@ describe('useOnlineStatus Hook', () => {
         expect(result.current).toBe(true)
       })
 
-      expect(mockNetInfo.fetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
     })
 
     it('应该返回初始离线状态', async () => {
       // Mock NetInfo.fetch 返回离线状态
-      mockNetInfo.fetch.mockResolvedValue({
+      mockFetch.mockResolvedValue({
         isInternetReachable: false,
         isConnected: false,
       })
@@ -65,10 +65,10 @@ describe('useOnlineStatus Hook', () => {
       const mockEventListener = {
         remove: jest.fn(),
       }
-      mockNetInfo.addEventListener.mockReturnValue(mockEventListener)
+      mockAddEventListener.mockReturnValue(mockEventListener)
 
       // 初始在线
-      mockNetInfo.fetch.mockResolvedValue({
+      mockFetch.mockResolvedValue({
         isInternetReachable: true,
         isConnected: true,
       })
@@ -80,9 +80,9 @@ describe('useOnlineStatus Hook', () => {
 
       act(() => {
         // 获取传递给addEventListener的回调函数
-        const addEventListenerCalls = mockNetInfo.addEventListener.mock.calls
+        const addEventListenerCalls = mockAddEventListener.mock.calls
         if (addEventListenerCalls.length > 0) {
-          listenerCallback = addEventListenerCalls[0][1]
+          listenerCallback = addEventListenerCalls[0][0]
         }
       })
 
@@ -113,13 +113,13 @@ describe('useOnlineStatus Hook', () => {
       const mockEventListener = {
         remove: jest.fn(),
       }
-      mockNetInfo.addEventListener.mockReturnValue(mockEventListener)
+      mockAddEventListener.mockReturnValue(mockEventListener)
 
       const { unmount } = renderHook(() => useOnlineStatus(), {
         // 不等待，直接测试监听器设置
       })
 
-      expect(mockNetInfo.addEventListener).toHaveBeenCalled()
+      expect(mockAddEventListener).toHaveBeenCalled()
 
       // 清理
       unmount()
@@ -131,8 +131,8 @@ describe('useOnlineStatus Hook', () => {
       const mockEventListener = {
         remove: jest.fn(),
       }
-      mockNetInfo.addEventListener.mockReturnValue(mockEventListener)
-      mockNetInfo.fetch.mockResolvedValue({
+      mockAddEventListener.mockReturnValue(mockEventListener)
+      mockFetch.mockResolvedValue({
         isInternetReachable: true,
         isConnected: true,
       })
@@ -142,9 +142,9 @@ describe('useOnlineStatus Hook', () => {
       let listenerCallback: ((state: any) => void) | undefined
 
       act(() => {
-        const calls = mockNetInfo.addEventListener.mock.calls
+        const calls = mockAddEventListener.mock.calls
         if (calls.length > 0) {
-          listenerCallback = calls[0][1]
+          listenerCallback = calls[0][0]
         }
       })
 
@@ -173,7 +173,7 @@ describe('useOnlineStatus Hook', () => {
 
   describe('错误处理', () => {
     it('应该处理 NetInfo.fetch 错误', async () => {
-      mockNetInfo.fetch.mockRejectedValue(new Error('NetInfo error'))
+      mockFetch.mockRejectedValue(new Error('NetInfo error'))
 
       // Hook应该有错误处理，返回默认值或抛出错误
       // 这取决于实际实现
@@ -182,10 +182,13 @@ describe('useOnlineStatus Hook', () => {
       // 验证错误处理（根据实际实现调整）
       // 如果Hook有try-catch，可能会返回false
       // 或者可能需要期望错误
+      await waitFor(() => {
+        expect(result.current).toBeDefined()
+      })
     })
 
     it('应该处理 addEventListener 错误', () => {
-      mockNetInfo.addEventListener.mockImplementation(() => {
+      mockAddEventListener.mockImplementation(() => {
         throw new Error('Listener error')
       })
 
@@ -198,7 +201,7 @@ describe('useOnlineStatus Hook', () => {
 
   describe('边界条件', () => {
     it('应该处理 NetInfo 返回 undefined', async () => {
-      mockNetInfo.fetch.mockResolvedValue(undefined)
+      mockFetch.mockResolvedValue(undefined)
 
       const { result } = renderHook(() => useOnlineStatus())
 
@@ -210,7 +213,7 @@ describe('useOnlineStatus Hook', () => {
     })
 
     it('应该处理 NetInfo 返回 null', async () => {
-      mockNetInfo.fetch.mockResolvedValue(null)
+      mockFetch.mockResolvedValue(null)
 
       const { result } = renderHook(() => useOnlineStatus())
 
