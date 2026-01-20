@@ -42,12 +42,11 @@ const RecordHistoryScreen = () => {
   }, [loadHistory]) // ✅ 添加依赖
 
   const formatTime = (dateString: string) => {
-    // 解析时间字符串并转换为北京时间（UTC+8）
+    // 后端返回的是UTC时间（ISO 8601格式）
+    // 需要转换为北京时间（UTC+8）
     const date = new Date(dateString)
 
-    // 获取北京时间（UTC+8）
-    // 如果是UTC时间字符串，new Date会自动转换为本地时区
-    // 但为了确保正确显示北京时间，我们手动添加8小时
+    // 手动添加8小时得到北京时间
     const utcTime = date.getTime()
     const beijingTime = new Date(utcTime + 8 * 60 * 60 * 1000)
 

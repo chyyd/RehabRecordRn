@@ -81,10 +81,9 @@ export const getPatientHistory = async (
   patientId: number,
   days: number = 7
 ): Promise<TreatmentRecord[]> => {
-  // 计算日期范围（使用本地时区）
-  const endDate = new Date()
+  // 计算开始日期（使用本地时区）
   const startDate = new Date()
-  startDate.setDate(endDate.getDate() - days)
+  startDate.setDate(startDate.getDate() - days)
 
   // 格式化日期为 YYYY-MM-DD（使用本地时区）
   const formatDate = (date: Date): string => {
@@ -100,7 +99,7 @@ export const getPatientHistory = async (
     params: {
       patientId,
       startDate: formatDate(startDate),
-      endDate: formatDate(endDate),
+      // 不设置 endDate，让它查到未来（包含今天的所有记录）
     },
   })
   return response.data
