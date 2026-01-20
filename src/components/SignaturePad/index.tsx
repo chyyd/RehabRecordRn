@@ -1,8 +1,8 @@
 // 电子签名组件
-import React, { useRef, useState } from 'react'
-import { View, Text, StyleSheet, Modal, TouchableOpacity, LayoutChangeEvent } from 'react-native'
-import { Button, useTheme } from 'react-native-paper'
+import React, { useRef, useState, useEffect } from 'react'
+import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native'
 import SignatureScreen from 'react-native-signature-canvas'
+import Orientation from 'react-native-orientation-locker'
 
 interface SignaturePadProps {
   visible: boolean
@@ -15,15 +15,31 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   onConfirm,
   onClose,
 }) => {
-  const theme = useTheme()
   const signatureRef = useRef<any>(null)
   const [isEmpty, setIsEmpty] = useState(true)
   const [hasSigned, setHasSigned] = useState(false)
   const [containerHeight, setContainerHeight] = useState(0)
 
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { height } = event.nativeEvent.layout
-    console.log('📐 签名容器尺寸:', { height })
+  // 处理屏幕方向切换
+  useEffect(() => {
+    if (visible) {
+      // 进入签名页：锁定为横屏（逆时针旋转90度）
+      Orientation.lockToLandscapeRight()
+    } else {
+      // 退出签名页：恢复竖屏
+      Orientation.lockToPortrait()
+    }
+
+    // 组件卸载时恢复竖屏
+    return () => {
+      Orientation.lockToPortrait()
+    }
+  }, [visible])
+
+  // 获取容器布局
+  const handleLayout = (event: any) => {
+    const { width, height } = event.nativeEvent.layout
+    console.log('📐 签名容器尺寸:', { width, height })
     setContainerHeight(height)
   }
 
@@ -67,32 +83,32 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* 标题栏 */}
+        {/* 顶部操作栏 - 包含三个按钮 */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.headerButton}>
             <Text style={styles.headerButtonText}>取消</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>签名确认</Text>
           <TouchableOpacity
             onPress={handleClear}
-            style={styles.headerButton}
+            style={[styles.headerButton, styles.clearButton]}
           >
-            <Text style={[styles.headerButtonText, { color: theme.colors.primary }]}>
-              清空
+            <Text style={styles.clearButtonText}>清空重签</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleConfirm}
+            style={[styles.headerButton, styles.confirmButton]}
+            disabled={isEmpty}
+          >
+            <Text style={[
+              styles.confirmButtonText,
+              isEmpty && styles.confirmButtonTextDisabled
+            ]}>
+              确认签名
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* 提示文字 */}
-        <View style={styles.tipContainer}>
-          <Text style={styles.tipText}>请在下方区域签名</Text>
-          <Text style={styles.tipSubtext}>签名将用于治疗记录确认</Text>
-          <Text style={styles.tipStatus}>
-            状态: {isEmpty ? '等待签名...' : '已签名 ✓'}
-          </Text>
-        </View>
-
-        {/* 签名区域 */}
+        {/* 签名区域 - 移除边距以最大化空间 */}
         <View style={styles.signatureContainer} onLayout={handleLayout}>
           {containerHeight > 0 && (
             <SignatureScreen
@@ -102,21 +118,25 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
               onEnd={handleEnd}
               autoClear={false}
               descriptionText=""
+              bgStrokeWidth={0} // 移除背景网格
+              clearText="清空"
+              confirmText="确认"
+              penColor="black" // 设置笔迹颜色为黑色
+              backgroundColor="#ffffff" // 设置背景色为白色
+              dataURL="" // 初始化为空
+              dotSize={2} // 笔锋效果：点大小，减半以获得适中笔画
+              minWidth={2} // 笔锋效果：最小线宽，减半
+              maxWidth={5} // 笔锋效果：最大线宽，减半
               webStyle={`
                 .m-signature-pad {
                   box-shadow: none;
                   border: none;
                   border-radius: 0;
-                  width: 100vw;
-                  height: ${containerHeight}px;
-                  position: absolute;
-                  top: 0;
-                  left: 0;
+                  margin: 0 auto;
                 }
                 .m-signature-pad--body {
                   background-color: #ffffff;
-                  width: 100%;
-                  height: 100%;
+                  touch-action: none;
                 }
                 .m-signature-pad--footer {
                   display: none;
@@ -129,35 +149,18 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
                   height: 100%;
                   overflow: hidden;
                   position: relative;
+                  background-color: #ffffff;
                 }
                 canvas {
                   touch-action: none;
                   width: 100%;
                   height: 100%;
                   display: block;
+                  background-color: #ffffff;
                 }
               `}
             />
           )}
-        </View>
-
-        {/* 底部按钮 */}
-        <View style={styles.footer}>
-          <Button
-            mode="outlined"
-            onPress={handleClear}
-            style={styles.footerButton}
-          >
-            清空重签
-          </Button>
-          <Button
-            mode="contained"
-            onPress={handleConfirm}
-            style={styles.footerButton}
-            disabled={isEmpty}
-          >
-            确认签名
-          </Button>
         </View>
       </View>
     </Modal>
@@ -173,67 +176,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 7, // 60% of 12
+    paddingVertical: 5, // 60% of 8
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    minHeight: 26, // 60% of 44
   },
   headerButton: {
-    padding: 8,
+    padding: 2, // 60% of 4
+    minWidth: 30, // 60% of 50
   },
   headerButtonText: {
-    fontSize: 16,
+    fontSize: 15, // 保持原大小
     color: '#6b7280',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  clearButton: {
+    backgroundColor: '#fff7ed', // 浅橙色背景
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  tipContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+  clearButtonText: {
+    fontSize: 15,
+    color: '#ea580c', // 橙色文字
+    fontWeight: '600',
   },
-  tipText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1f2937',
-    marginBottom: 4,
+  confirmButton: {
+    backgroundColor: '#0ea5e9', // 蓝色背景
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  tipSubtext: {
-    fontSize: 13,
-    color: '#6b7280',
+  confirmButtonText: {
+    fontSize: 15,
+    color: '#ffffff', // 白色文字
+    fontWeight: '600',
   },
-  tipStatus: {
-    fontSize: 12,
-    color: '#0ea5e9',
-    marginTop: 4,
+  confirmButtonTextDisabled: {
+    opacity: 0.5,
   },
   signatureContainer: {
     // 使用 flex: 1 让签名区域自动填充剩余空间
     flex: 1,
-    margin: 16,
-    marginBottom: 8,
+    margin: 8, // 减小边距从 16 到 8
+    marginBottom: 4,
     borderWidth: 2,
     borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderRadius: 4,
     overflow: 'hidden',
     backgroundColor: '#fff',
     position: 'relative',
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-    backgroundColor: '#ffffff',
-  },
-  footerButton: {
-    flex: 1,
+    justifyContent: 'center', // 垂直居中
+    alignItems: 'center', // 水平居中
   },
 })
 

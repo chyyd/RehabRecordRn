@@ -20,6 +20,7 @@ import {
 } from 'react-native-paper'
 import Icon from 'react-native-vector-icons/MaterialIcons'
 import { useRoute, useNavigation } from '@react-navigation/native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRecordStore, usePatientStore } from '@/stores'
 import { recordApi } from '@/services/api'
 import { API_ENDPOINTS } from '@/utils/constants'
@@ -279,7 +280,7 @@ const CreateRecordScreen = () => {
         endTime: startTime.toISOString(),
         durationMinutes: selectedProject.defaultDuration,
         patientReaction: '无不良反应',
-        signatureImage: signatureFilename,
+        photoFileName: signatureFilename, // 使用 photoFileName 字段保存签名文件名
         notes: '',
       })
 
@@ -331,20 +332,40 @@ const CreateRecordScreen = () => {
     formData.append('treatmentTime', new Date().toISOString())
     formData.append('projectName', selectedProject?.name || '')
 
-    const response = await request<any>({
-      method: 'POST',
-      url: '/photos/upload',
-      data: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    // 调试日志
+    console.log('🚀 开始上传签名:', {
+      isSignature: 'true',
+      medicalRecordNo: patient?.medicalRecordNo || '',
+      projectName: selectedProject?.name || '',
+      treatmentTime: new Date().toISOString(),
     })
 
-    if (!response.data?.filename) {
+    // 使用 fetch API 上传，避免 Axios 在 React Native 中的 FormData 问题
+    // 从 ServerSettingsDialog 获取服务器地址
+    const { getServerUrl } = await import('@/components/ServerSettingsDialog')
+    const serverUrl = await getServerUrl()
+    const token = await AsyncStorage.getItem('auth_token')
+
+    const response = await fetch(`${serverUrl}/photos/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // 注意：不设置 Content-Type，让 fetch 自动设置
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    if (!result.filename) {
       throw new Error('签名上传失败')
     }
 
-    return response.data.filename
+    return result.filename
   }
 
   if (!patient) {

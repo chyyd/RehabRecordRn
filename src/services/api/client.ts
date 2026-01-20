@@ -36,9 +36,10 @@ class ApiClient {
     this.client = axios.create({
       baseURL: API_CONFIG.BASE_URL,
       timeout: API_CONFIG.TIMEOUT,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      // 不设置默认的 Content-Type，让每个请求自己决定
+      // headers: {
+      //   'Content-Type': 'application/json',
+      // },
     })
 
     this.setupInterceptors()
@@ -77,6 +78,20 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
+
+        // 根据 data 类型设置 Content-Type
+        if (config.data) {
+          if (config.data instanceof FormData) {
+            // FormData: 在 React Native 中必须显式设置 Content-Type 为 multipart/form-data
+            // React Native 的网络层会自动添加 boundary
+            config.headers['Content-Type'] = 'multipart/form-data'
+            console.log('📤 检测到 FormData，已设置 Content-Type 为 multipart/form-data')
+          } else if (typeof config.data === 'object' && config.data !== null) {
+            // JSON 对象: 设置 Content-Type 为 application/json
+            config.headers['Content-Type'] = 'application/json'
+          }
+        }
+
         logger.network(config.method?.toUpperCase() || 'GET', config.url || '')
         return config
       },

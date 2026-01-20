@@ -28,4 +28,9 @@
 #endif
 }
 
+// 支持所有方向
+- (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+  return UIInterfaceOrientationMaskAll;
+}
+
 @end
