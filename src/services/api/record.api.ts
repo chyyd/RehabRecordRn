@@ -75,15 +75,33 @@ export const deleteRecord = async (id: number): Promise<void> => {
 
 /**
  * 获取患者历史记录
+ * 使用 /records 端点，计算日期范围（使用本地时区）
  */
 export const getPatientHistory = async (
   patientId: number,
   days: number = 7
 ): Promise<TreatmentRecord[]> => {
+  // 计算日期范围（使用本地时区）
+  const endDate = new Date()
+  const startDate = new Date()
+  startDate.setDate(endDate.getDate() - days)
+
+  // 格式化日期为 YYYY-MM-DD（使用本地时区）
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const response = await request<TreatmentRecord[]>({
     method: 'GET',
-    url: API_ENDPOINTS.RECORD_HISTORY,
-    params: { patientId, days },
+    url: API_ENDPOINTS.RECORDS, // 使用 /records 而不是 /records/history
+    params: {
+      patientId,
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate),
+    },
   })
   return response.data
 }

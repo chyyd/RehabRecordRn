@@ -9,7 +9,6 @@ import {
   Alert,
 } from 'react-native'
 import { Card, Avatar, Button, Divider, useTheme } from 'react-native-paper'
-import Icon from 'react-native-vector-icons/MaterialIcons'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { patientApi } from '@/services/api'
 import type { Patient } from '@/types'
@@ -41,13 +40,11 @@ const PatientDetailScreen = () => {
   }
 
   const handleCreateRecord = () => {
-    // TODO: 导航到创建记录页面
-    Alert.alert('提示', '创建记录功能将在后续实现')
+    navigation.navigate('CreateRecord' as never, { patientId } as never)
   }
 
   const handleViewHistory = () => {
-    // TODO: 导航到历史记录页面
-    Alert.alert('提示', '历史记录功能将在后续实现')
+    navigation.navigate('RecordHistory' as never, { patientId } as never)
   }
 
   if (loading || !patient) {
@@ -123,18 +120,6 @@ const PatientDetailScreen = () => {
           查看历史记录
         </Button>
       </View>
-
-      {/* 最近记录 */}
-      <Text style={styles.sectionTitle}>最近治疗记录</Text>
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.emptyRecords}>
-            <Icon name="history" size={48} color="#9ca3af" />
-            <Text style={styles.emptyText}>暂无最近记录</Text>
-            <Text style={styles.emptySubtext}>点击"创建治疗记录"开始</Text>
-          </View>
-        </Card.Content>
-      </Card>
 
       <View style={{ height: 24 }} />
     </ScrollView>
@@ -228,21 +213,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-  },
-  emptyRecords: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6b7280',
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginTop: 4,
   },
 })
 

@@ -7,7 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native'
-import { Card, Avatar, useTheme, Chip } from 'react-native-paper'
+import { Card, Avatar } from 'react-native-paper'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { recordApi } from '@/services/api'
 import { createLogger } from '@/utils/logger'
@@ -17,7 +17,6 @@ import type { RecordHistoryRouteProp, MainNavigationProp } from '@/navigation'
 const logger = createLogger('RecordHistory')
 
 const RecordHistoryScreen = () => {
-  const theme = useTheme()
   const route = useRoute()
   const navigation = useNavigation<MainNavigationProp>()
   const { patientId } = route.params as RecordHistoryRouteProp['params']
@@ -43,10 +42,21 @@ const RecordHistoryScreen = () => {
   }, [loadHistory]) // ✅ 添加依赖
 
   const formatTime = (dateString: string) => {
+    // 解析时间字符串并转换为北京时间（UTC+8）
     const date = new Date(dateString)
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${String(
-      date.getHours()
-    ).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+
+    // 获取北京时间（UTC+8）
+    // 如果是UTC时间字符串，new Date会自动转换为本地时区
+    // 但为了确保正确显示北京时间，我们手动添加8小时
+    const utcTime = date.getTime()
+    const beijingTime = new Date(utcTime + 8 * 60 * 60 * 1000)
+
+    const month = beijingTime.getMonth() + 1
+    const day = beijingTime.getDate()
+    const hours = String(beijingTime.getHours()).padStart(2, '0')
+    const minutes = String(beijingTime.getMinutes()).padStart(2, '0')
+
+    return `${month}月${day}日 ${hours}:${minutes}`
   }
 
   // ✅ 使用 useCallback 优化导航函数
@@ -64,40 +74,10 @@ const RecordHistoryScreen = () => {
           <Card.Content>
             <View style={styles.recordHeader}>
               <Text style={styles.projectName}>{item.project?.name}</Text>
-              <Chip
-                style={[
-                  styles.statusChip,
-                  {
-                    backgroundColor:
-                      item.status === 'completed'
-                        ? '#d1fae5'
-                        : item.status === 'cancelled'
-                        ? '#fee2e2'
-                        : '#fef3c7',
-                  },
-                ]}
-                textStyle={{
-                  color:
-                    item.status === 'completed'
-                      ? '#065f46'
-                      : item.status === 'cancelled'
-                      ? '#991b1b'
-                      : '#92400e',
-                }}
-              >
-                {item.status === 'completed'
-                  ? '已完成'
-                  : item.status === 'cancelled'
-                  ? '已取消'
-                  : '待处理'}
-              </Chip>
+              <Text style={styles.recordTime}>{formatTime(item.startTime)}</Text>
             </View>
 
             <View style={styles.recordInfo}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>时间</Text>
-                <Text style={styles.infoValue}>{formatTime(item.startTime)}</Text>
-              </View>
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>时长</Text>
                 <Text style={styles.infoValue}>{item.durationMinutes}分钟</Text>
@@ -171,22 +151,22 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     flex: 1,
   },
-  statusChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  recordTime: {
+    fontSize: 14,
+    color: '#0ea5e9',
+    fontWeight: '500',
   },
   recordInfo: {
-    flexDirection: 'row',
-    gap: 24,
     marginBottom: 8,
   },
   infoItem: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   infoLabel: {
     fontSize: 12,
     color: '#6b7280',
-    marginBottom: 2,
   },
   infoValue: {
     fontSize: 14,
