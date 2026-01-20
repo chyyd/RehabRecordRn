@@ -15,16 +15,15 @@ import {
 } from 'react-native'
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera'
 import Icon from 'react-native-vector-icons/MaterialIcons'
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
+import type { MainStackParamList } from '@/navigation'
 
-interface QRScannerScreenProps {
-  onCodeScanned: (code: string) => void
-  onClose?: () => void
-}
+type QRScannerRouteProp = RouteProp<MainStackParamList, 'QRScanner'>
 
-export const QRScannerScreen: React.FC<QRScannerScreenProps> = ({
-  onCodeScanned,
-  onClose,
-}) => {
+export const QRScannerScreen: React.FC = () => {
+  const navigation = useNavigation()
+  const route = useRoute<QRScannerRouteProp>()
+  const { sourceScreen } = route.params
   const [isScanning, setIsScanning] = useState(true)
   const [torchEnabled, setTorchEnabled] = useState(false)
   const hasScannedRef = useRef(false)
@@ -54,27 +53,15 @@ export const QRScannerScreen: React.FC<QRScannerScreenProps> = ({
       }
 
       // 显示扫描结果并确认
-      Alert.alert(
-        '扫描成功',
-        `扫描到码：${code.value}`,
-        [
-          {
-            text: '取消',
-            onPress: () => {
-              hasScannedRef.current = false
-              setIsScanning(true)
-            },
-            style: 'cancel',
-          },
-          {
-            text: '确认',
-            onPress: () => {
-              onCodeScanned(code.value)
-            },
-          },
-        ],
-        { cancelable: false }
-      )
+      // 扫描成功后导航到患者详情（假设扫描的是患者ID或病历号）
+      // 如果需要返回到 ScanScreen，可以通过 navigation.navigate()
+      if (sourceScreen === 'Scan') {
+        // 导航回 ScanScreen 并传递参数
+        ;(navigation as any).navigate('Scan', { scannedCode: code.value })
+      } else {
+        // 其他来源屏幕，直接 goBack
+        navigation.goBack()
+      }
     },
   })
 
@@ -87,7 +74,7 @@ export const QRScannerScreen: React.FC<QRScannerScreenProps> = ({
             '需要相机权限',
             '请在设置中开启相机权限以使用扫码功能',
             [
-              { text: '取消', onPress: onClose },
+              { text: '取消', onPress: () => navigation.goBack() },
               { text: '去设置', onPress: () => {
                 // 可以打开应用设置页面
               }},
@@ -96,7 +83,7 @@ export const QRScannerScreen: React.FC<QRScannerScreenProps> = ({
         }
       })
     }
-  }, [hasPermission, requestPermission, onClose])
+  }, [hasPermission, requestPermission, navigation])
 
   // 无权限状态
   if (!hasPermission) {
@@ -148,7 +135,7 @@ export const QRScannerScreen: React.FC<QRScannerScreenProps> = ({
       <View style={styles.overlay}>
         {/* 顶部栏 */}
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
             <Icon name="close" size={28} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>扫描二维码</Text>

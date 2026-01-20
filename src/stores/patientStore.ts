@@ -81,7 +81,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       } else {
         // 搜索患者
         const results = await patientApi.searchPatients(keyword)
-        set({ patients })
+        // results 是 Patient[] 数组
+        set({ patients: results || [] })
       }
 
       set({ isLoading: false })

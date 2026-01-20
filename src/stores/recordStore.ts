@@ -25,6 +25,7 @@ interface RecordState {
   setCurrentRecord: (record: TreatmentRecord | null) => void
   loadProjectsFromCache: () => Promise<void>
   clearRecords: () => void
+  updateRecentProjects: (projectId: number) => void
 }
 
 export const useRecordStore = create<RecordState>((set, get) => ({
@@ -46,11 +47,11 @@ export const useRecordStore = create<RecordState>((set, get) => ({
       const response = await recordApi.getRecords(params)
 
       set({
-        records: response.data.data,
+        records: response.data || [],
         isLoading: false,
       })
 
-      logger.info(`获取记录列表成功: ${response.data.data.length}条`)
+      logger.info(`获取记录列表成功: ${(response.data || []).length}条`)
     } catch (error: any) {
       set({ isLoading: false })
       logger.error('获取记录列表失败', error)

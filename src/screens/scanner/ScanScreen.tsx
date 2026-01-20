@@ -3,33 +3,30 @@
  * 提供扫码和手动输入两种方式
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { Button } from 'react-native-paper'
 import Icon from 'react-native-vector-icons/MaterialIcons'
-import { useNavigation } from '@react-navigation/native'
-import { StackNavigationProp } from '@react-navigation/stack'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import { ManualInputDialog } from '@/components/ManualInputDialog'
-
-type RootStackParamList = {
-  QRScanner: { onCodeScanned: (code: string) => void }
-  PatientDetail: { patientId: string }
-}
-
-type ScanScreenNavigationProp = StackNavigationProp<RootStackParamList>
+import type { MainNavigationProp } from '@/navigation'
 
 const ScanScreen = () => {
-  const navigation = useNavigation<ScanScreenNavigationProp>()
+  const navigation = useNavigation<MainNavigationProp>()
+  const route = useRoute()
   const [showManualInput, setShowManualInput] = useState(false)
 
+  // 监听扫码结果
+  useEffect(() => {
+    const params = route.params as any
+    if (params?.scannedCode) {
+      handleScannedCode(params.scannedCode)
+    }
+  }, [route.params])
+
   const handleScanPress = () => {
-    // 导航到QR码扫描器
-    navigation.navigate('QRScanner', {
-      onCodeScanned: (code: string) => {
-        // 扫码成功后的处理
-        handleScannedCode(code)
-      },
-    })
+    // 导航到QR码扫描器，传递来源屏幕信息
+    navigation.navigate('QRScanner', { sourceScreen: 'Scan' })
   }
 
   const handleScannedCode = (code: string) => {
@@ -39,8 +36,13 @@ const ScanScreen = () => {
       {
         text: '查看患者',
         onPress: () => {
-          // 假设扫描的是患者ID或病历号
-          navigation.navigate('PatientDetail', { patientId: code })
+          // 假设扫描的是患者ID或病历号，转换为数字
+          const patientId = parseInt(code, 10)
+          if (!isNaN(patientId)) {
+            navigation.navigate('PatientDetail', { patientId })
+          } else {
+            Alert.alert('错误', '无效的患者ID')
+          }
         },
       },
       {
@@ -60,8 +62,13 @@ const ScanScreen = () => {
       {
         text: '查看患者',
         onPress: () => {
-          // 查找成功后跳转到患者详情
-          navigation.navigate('PatientDetail', { patientId: medicalNo })
+          // 查找成功后跳转到患者详情（转换为数字）
+          const patientId = parseInt(medicalNo, 10)
+          if (!isNaN(patientId)) {
+            navigation.navigate('PatientDetail', { patientId })
+          } else {
+            Alert.alert('错误', '无效的患者ID')
+          }
         },
       },
       {
@@ -81,7 +88,7 @@ const ScanScreen = () => {
       <View style={styles.content}>
         {/* 扫码图标 */}
         <View style={styles.iconContainer}>
-          <Icon name="qr-code-scanner" size={120} color="#0ea5e9" />
+          <Icon name="qr-code" size={120} color="#0ea5e9" />
         </View>
 
         <Text style={styles.title}>扫描患者二维码</Text>

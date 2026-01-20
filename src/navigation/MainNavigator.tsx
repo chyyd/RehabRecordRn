@@ -34,7 +34,7 @@ function TabNavigator() {
               iconName = 'people'
               break
             case 'Scan':
-              iconName = 'qr-code-scanner'
+              iconName = 'qr-code'
               break
             case 'Home':
               iconName = 'home'

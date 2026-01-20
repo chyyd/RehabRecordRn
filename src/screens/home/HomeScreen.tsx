@@ -75,7 +75,7 @@ const HomeScreen = () => {
                 </Text>
                 <Text style={styles.role}>
                   {userInfo?.role === 'therapist' && '治疗师'}
-                  {userInfo?.role === 'doctor' && '医师'}
+                  {userInfo?.role === 'physician' && '医师'}
                   {userInfo?.role === 'nurse' && '护士'}
                   {userInfo?.role === 'admin' && '管理员'}
                 </Text>

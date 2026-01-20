@@ -70,8 +70,8 @@ const RecordDetailScreen = () => {
           <Text style={styles.sectionTitle}>治疗信息</Text>
           <Divider style={styles.divider} />
 
-          <InfoRow label="治疗项目" value={record.project?.name} />
-          <InfoRow label="治疗师" value={record.therapist?.name} />
+          <InfoRow label="治疗项目" value={record.project?.name || '未知'} />
+          <InfoRow label="治疗师" value={record.therapist?.name || '未知'} />
           <InfoRow
             label="开始时间"
             value={new Date(record.startTime).toLocaleString('zh-CN')}

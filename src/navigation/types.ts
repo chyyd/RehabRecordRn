@@ -22,7 +22,7 @@ export type MainStackParamList = {
   CreateRecord: { patientId: number }
   RecordDetail: { recordId: number }
   RecordHistory: { patientId: number }
-  QRScanner: { onCodeScanned: (code: string) => void }
+  QRScanner: { sourceScreen?: 'Scan' | 'PatientDetail' }
 }
 
 // ============================================================
