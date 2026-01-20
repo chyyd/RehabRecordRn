@@ -125,6 +125,12 @@ const RecordHistoryScreen = () => {
         data={records}
         renderItem={renderRecordItem}
         keyExtractor={(item) => item.id.toString()}
+        // ✅ 性能优化：getItemLayout（基于Context7最佳实践）
+        getItemLayout={(data, index) => ({
+          length: 120, // 记录卡片固定高度
+          offset: 120 * index,
+          index,
+        })}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           !loading ? (
@@ -133,6 +139,9 @@ const RecordHistoryScreen = () => {
             </View>
           ) : null
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        initialNumToRender={10}
       />
     </View>
   )

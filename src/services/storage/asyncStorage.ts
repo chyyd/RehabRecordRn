@@ -1,5 +1,5 @@
 // AsyncStorage 封装 - 提供类型安全的本地存储操作
-import { AsyncStorage } from '@react-native-async-storage/async-storage'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createLogger } from '@/utils/logger'
 
 const logger = createLogger('Storage')

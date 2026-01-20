@@ -1,7 +1,7 @@
 // 认证状态管理 - 符合 Context7 最佳实践
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { AsyncStorage } from '@react-native-async-storage/async-storage'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { authApi } from '@/services/api'
 import { STORAGE_KEYS } from '@/utils/constants'
 import { createLogger } from '@/utils/logger'
@@ -92,7 +92,11 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.login(credentials)
           const { access_token, user } = response
 
-          // 更新状态
+          // 保存到 AsyncStorage（供 API 客户端使用）
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, access_token)
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(user))
+
+          // 更新 Zustand store 状态
           set({
             token: access_token,
             userInfo: user,
@@ -116,7 +120,11 @@ export const useAuthStore = create<AuthState>()(
           // 调用登出 API
           await authApi.logout()
 
-          // 清除状态
+          // 清除 AsyncStorage
+          await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+          await AsyncStorage.removeItem(STORAGE_KEYS.USER_INFO)
+
+          // 清除 Zustand store 状态
           set({
             token: null,
             userInfo: null,
@@ -127,6 +135,8 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           logger.error('登出失败', error)
           // 即使 API 调用失败，也清除本地状态
+          await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+          await AsyncStorage.removeItem(STORAGE_KEYS.USER_INFO)
           set({
             token: null,
             userInfo: null,

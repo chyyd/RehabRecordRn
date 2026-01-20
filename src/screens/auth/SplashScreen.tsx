@@ -3,19 +3,34 @@ import React, { useEffect } from 'react'
 import { View, Text, StyleSheet, StatusBar } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { createLogger } from '@/utils/logger'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { AuthStackParamList } from '@/navigation/types'
 
 const logger = createLogger('SplashScreen')
 
 const SplashScreen = () => {
   const { isAuthenticated, init } = useAuthStore()
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>()
 
   useEffect(() => {
     // 初始化认证状态
     const prepare = async () => {
       try {
         await init()
+
+        // 根据认证状态导航
+        if (isAuthenticated) {
+          // 已认证 - RootNavigator 会自动切换到 MainNavigator
+          logger.info('用户已认证')
+        } else {
+          // 未认证 - 导航到登录页面
+          navigation.replace('Login')
+        }
       } catch (error) {
         logger.error('初始化失败', error)
+        // 出错也导航到登录页面
+        navigation.replace('Login')
       }
     }
 
@@ -25,7 +40,7 @@ const SplashScreen = () => {
     }, 1500)
 
     return () => clearTimeout(timer)
-  }, [init])
+  }, [init, isAuthenticated, navigation])
 
   return (
     <View style={styles.container}>

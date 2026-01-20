@@ -14,7 +14,40 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0")
+
+        // Force Kotlin 1.8.0 compatibility for kotlinx-coroutines
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0")
+    }
+}
+
+allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+
+    // Force Kotlin version to 1.8.0 for all modules
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
+            force "org.jetbrains.kotlin:kotlin-stdlib-common:1.8.0"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.0"
+            // Force kotlinx-coroutines to version compatible with Kotlin 1.8 (1.7.x)
+            force "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+            force "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+            force "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3"
+            // Force androidx.core to version compatible with compileSdk 34 and AGP 8.1.1
+            force "androidx.core:core:1.13.1"
+            force "androidx.core:core-ktx:1.13.1"
+        }
     }
 }
 

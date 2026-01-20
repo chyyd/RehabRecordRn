@@ -43,18 +43,22 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       set({ isLoading: true })
 
       const response = await patientApi.getPatients(params)
-      const { data } = response
+
+      // 响应结构: { data: Patient[], total, page, limit, totalPages }
+      const patients = response.data || []
 
       // ✅ P2-2: 先保存到存储，再更新状态（避免竞态条件）
-      await storage.set(STORAGE_KEYS.PATIENTS_CACHE, data)
+      if (patients.length > 0) {
+        await storage.set(STORAGE_KEYS.PATIENTS_CACHE, patients)
+      }
 
       set({
-        patients: data,
+        patients,
         isLoading: false,
         lastFetchTime: Date.now(),
       })
 
-      logger.info(`获取患者列表成功: ${data.length}条`)
+      logger.info(`获取患者列表成功: ${patients.length}条`)
     } catch (error: any) {
       set({ isLoading: false })
       logger.error('获取患者列表失败', error)
@@ -72,11 +76,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       if (!keyword.trim()) {
         // 关键词为空，获取所有患者
         const response = await patientApi.getPatients()
-        set({ patients: response.data.data })
+        const patients = response.data || []
+        set({ patients })
       } else {
         // 搜索患者
         const results = await patientApi.searchPatients(keyword)
-        set({ patients: results })
+        set({ patients })
       }
 
       set({ isLoading: false })
@@ -117,7 +122,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     try {
       set({ isRefreshing: true })
       const response = await patientApi.getPatients()
-      const patients = response.data.data
+      const patients = response.data || []
 
       // ✅ P2-2: 先更新缓存，再更新状态
       await storage.set(STORAGE_KEYS.PATIENTS_CACHE, patients)

@@ -104,6 +104,22 @@ android {
     }
 }
 
+// Force dependency versions to avoid Kotlin metadata version conflicts
+configurations.all {
+    resolutionStrategy {
+        force "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-common:1.8.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.0"
+        force "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+        force "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+        force "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3"
+        // Force androidx.core to version compatible with compileSdk 34 and AGP 8.1.1
+        force "androidx.core:core:1.13.1"
+        force "androidx.core:core-ktx:1.13.1"
+    }
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")

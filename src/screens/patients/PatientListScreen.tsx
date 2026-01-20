@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { TextInput, useTheme } from 'react-native-paper'
+import { useNavigation } from '@react-navigation/native'
 import type { MainNavigationProp } from '@/navigation'
 import { usePatientStore } from '@/stores/patientStore'
 import { useDebounce } from '@/hooks'
@@ -168,12 +169,25 @@ const PatientListScreen = () => {
   // 提取 key 的函数
   const keyExtractor = useCallback((item: Patient) => item.id.toString(), [])
 
+  // ✅ 性能优化：getItemLayout - 跳过测量计算（基于Context7最佳实践）
+  const PATIENT_CARD_HEIGHT = 140 // 患者卡片固定高度
+
+  const getItemLayout = useCallback(
+    (data: any, index: number) => ({
+      length: PATIENT_CARD_HEIGHT,
+      offset: PATIENT_CARD_HEIGHT * index,
+      index,
+    }),
+    []
+  )
+
   return (
     <View style={styles.container}>
       <FlatList
         data={patients}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
+        getItemLayout={getItemLayout}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={!isLoading ? ListEmptyComponent : null}
         refreshControl={

@@ -4,6 +4,7 @@ import { storage } from '@/services/storage/asyncStorage'
 import { STORAGE_KEYS, SYNC_CONFIG } from '@/utils/constants'
 import { createLogger } from '@/utils/logger'
 import type { SyncQueue, SyncResult, SyncStatus } from '@/types'
+import { SyncStrategy } from '@/services/api/sync.api'
 
 const logger = createLogger('SyncStore')
 
@@ -130,21 +131,56 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       let failedCount = 0
       const errors: Array<{ id: string; error: string }> = []
 
-      // TODO: 实际的同步逻辑
-      // 这里需要调用后端的同步 API
-      // 目前先模拟同步成功
+      // ✅ 使用 SyncStrategy 执行真实的同步逻辑
+      const MAX_RETRY = 3
 
       for (const item of syncQueue.items) {
         try {
-          // 模拟同步成功
+          // 执行同步操作
+          await SyncStrategy.executeSyncItem(item)
+
+          // 同步成功，从队列中移除
           await get().removeFromSyncQueue(item.id)
           syncedCount++
+
+          logger.info(`同步成功: ${item.id}`)
         } catch (error: any) {
-          failedCount++
-          errors.push({
-            id: item.id,
-            error: error.message || '同步失败',
-          })
+          const updatedItem = {
+            ...item,
+            retryCount: item.retryCount + 1,
+          }
+
+          // 检查是否超过最大重试次数
+          if (updatedItem.retryCount >= MAX_RETRY) {
+            // 超过重试次数，标记为失败并从队列移除
+            failedCount++
+            errors.push({
+              id: item.id,
+              error: error.message || '同步失败（超过最大重试次数）',
+            })
+            await get().removeFromSyncQueue(item.id)
+
+            logger.error(`同步失败（超过最大重试次数）: ${item.id}`, error)
+          } else {
+            // 未超过重试次数，更新重试计数
+            const queue = get().syncQueue
+            const updatedItems = queue.items.map((queueItem) =>
+              queueItem.id === item.id ? updatedItem : queueItem
+            )
+
+            const updatedQueue = {
+              ...queue,
+              items: updatedItems,
+            }
+
+            await storage.set(STORAGE_KEYS.SYNC_QUEUE, updatedQueue)
+            set({ syncQueue: updatedQueue })
+
+            logger.warn(
+              `同步失败，等待下次重试 (${updatedItem.retryCount}/${MAX_RETRY}): ${item.id}`,
+              error
+            )
+          }
         }
       }
 

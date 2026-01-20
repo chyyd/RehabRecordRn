@@ -9,6 +9,10 @@ import { useSyncStore } from '@/stores/syncStore'
 import { storage } from '@/services/storage/asyncStorage'
 import { STORAGE_KEYS, SYNC_CONFIG } from '@/utils/constants'
 import type { SyncQueue, SyncItem } from '@/types'
+import { SyncStrategy } from '@/services/api/sync.api'
+
+// Mock SyncStrategy
+jest.mock('@/services/api/sync.api')
 
 describe('SyncStore', () => {
   beforeEach(() => {
@@ -17,6 +21,9 @@ describe('SyncStore', () => {
     ;(AsyncStorage.getItem as jest.Mock).mockResolvedValue(null)
     ;(AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined)
     ;(AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined)
+
+    // Mock SyncStrategy.executeSyncItem 默认成功
+    ;(SyncStrategy.executeSyncItem as jest.Mock).mockResolvedValue(undefined)
 
     // 重置store状态（基于Context7最佳实践）
     useSyncStore.setState({

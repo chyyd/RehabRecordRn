@@ -9,10 +9,14 @@ import {
   Platform,
   Alert,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native'
 import { TextInput, Button, Checkbox, useTheme } from 'react-native-paper'
+import Icon from 'react-native-vector-icons/MaterialIcons'
 import { useAuthStore } from '@/stores/authStore'
 import type { LoginDto } from '@/types'
+import { ServerSettingsDialog } from '@/components/ServerSettingsDialog'
+import { apiClient } from '@/services/api/client'
 
 const LoginScreen = () => {
   const theme = useTheme()
@@ -24,6 +28,7 @@ const LoginScreen = () => {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [showServerSettings, setShowServerSettings] = useState(false)
 
   const handleLogin = async () => {
     // 验证表单
@@ -41,7 +46,29 @@ const LoginScreen = () => {
       await login(formData)
       // 登录成功后，导航会自动切换到主界面（由 RootNavigator 处理）
     } catch (error: any) {
-      Alert.alert('登录失败', error.message || '请检查网络连接和用户信息')
+      // 检查是否是网络错误
+      const errorMessage = error.message || '请检查网络连接和用户信息'
+      const isNetworkError =
+        errorMessage.includes('网络') ||
+        errorMessage.includes('连接') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('ECONNREFUSED')
+
+      if (isNetworkError) {
+        Alert.alert(
+          '无法连接到服务器',
+          '请检查网络连接或服务器设置',
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '服务器设置',
+              onPress: () => setShowServerSettings(true),
+            },
+          ]
+        )
+      } else {
+        Alert.alert('登录失败', errorMessage)
+      }
     }
   }
 
@@ -116,6 +143,15 @@ const LoginScreen = () => {
           >
             {isLoading ? '登录中...' : '登录'}
           </Button>
+
+          {/* 服务器设置按钮 */}
+          <TouchableOpacity
+            style={styles.serverSettingsButton}
+            onPress={() => setShowServerSettings(true)}
+          >
+            <Icon name="settings" size={20} color="#6b7280" />
+            <Text style={styles.serverSettingsText}>服务器设置</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 测试账号提示 */}
@@ -124,39 +160,34 @@ const LoginScreen = () => {
           <View style={styles.testAccountButtons}>
             <Button
               mode="outlined"
-              onPress={() => fillTestAccount('admin', 'admin123')}
+              onPress={() => fillTestAccount('yyd', '123456')}
+              style={styles.testButton}
+              compact
+            >
+              yyd
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={() => fillTestAccount('admin', '123456')}
               style={styles.testButton}
               compact
             >
               管理员
             </Button>
-            <Button
-              mode="outlined"
-              onPress={() => fillTestAccount('therapist', 'therapist123')}
-              style={styles.testButton}
-              compact
-            >
-              治疗师
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={() => fillTestAccount('doctor', 'doctor123')}
-              style={styles.testButton}
-              compact
-            >
-              医师
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={() => fillTestAccount('nurse', 'nurse123')}
-              style={styles.testButton}
-              compact
-            >
-              护士
-            </Button>
           </View>
         </View>
       </ScrollView>
+
+      {/* 服务器设置对话框 */}
+      <ServerSettingsDialog
+        visible={showServerSettings}
+        onDismiss={() => setShowServerSettings(false)}
+        onSave={(serverUrl) => {
+          // 更新API客户端的服务器地址
+          apiClient.updateBaseUrl(serverUrl)
+          Alert.alert('成功', `服务器地址已更新为：${serverUrl}`)
+        }}
+      />
     </KeyboardAvoidingView>
   )
 }
@@ -225,6 +256,17 @@ const styles = StyleSheet.create({
   },
   loginButtonContent: {
     paddingVertical: 8,
+  },
+  serverSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  serverSettingsText: {
+    fontSize: 14,
+    color: '#6b7280',
   },
   testAccountsContainer: {
     backgroundColor: '#f9fafb',

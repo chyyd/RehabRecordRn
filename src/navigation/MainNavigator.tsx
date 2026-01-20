@@ -9,6 +9,7 @@ import type { MainStackParamList, TabParamList } from './types'
 import PatientListScreen from '@/screens/patients/PatientListScreen'
 import PatientDetailScreen from '@/screens/patients/PatientDetailScreen'
 import ScanScreen from '@/screens/scanner/ScanScreen'
+import { QRScannerScreen } from '@/screens/scanner/QRScannerScreen'
 import HomeScreen from '@/screens/home/HomeScreen'
 import CreateRecordScreen from '@/screens/records/CreateRecordScreen'
 import RecordDetailScreen from '@/screens/records/RecordDetailScreen'
@@ -119,6 +120,15 @@ export default function MainNavigator() {
         name="RecordHistory"
         component={RecordHistoryScreen}
         options={{ title: '历史记录' }}
+      />
+      <Stack.Screen
+        name="QRScanner"
+        component={QRScannerScreen}
+        options={{
+          title: '扫描二维码',
+          headerShown: false,
+          presentation: 'modal',
+        }}
       />
     </Stack.Navigator>
   )

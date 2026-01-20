@@ -3,7 +3,8 @@
 // import { API_BASE_URL, API_TIMEOUT, APP_ENV, ENABLE_DEBUG, ENABLE_OFFLINE_SYNC } from '@env'
 
 // 测试环境默认值
-const API_BASE_URL = 'http://localhost:3000/api'
+// Android 模拟器使用 10.0.2.2 访问宿主机 localhost
+const API_BASE_URL = 'http://10.0.2.2:3000'
 const API_TIMEOUT = '10000'
 const APP_ENV = 'development'
 const ENABLE_DEBUG = 'true'
@@ -11,7 +12,10 @@ const ENABLE_OFFLINE_SYNC = 'true'
 
 // API 配置
 export const API_CONFIG = {
-  BASE_URL: API_BASE_URL,
+  get BASE_URL() {
+    // 返回默认值，实际使用时会从AsyncStorage读取用户设置
+    return API_BASE_URL
+  },
   TIMEOUT: parseInt(API_TIMEOUT, 10) || 10000, // 10秒超时
 }
 

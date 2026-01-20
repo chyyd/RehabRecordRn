@@ -3,18 +3,19 @@
  * 虎林市中医医院
  */
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { StatusBar } from 'react-native'
-import { Provider as PaperProvider } from 'react-native-paper'
+import { Provider as PaperProvider, DefaultTheme as PaperDefaultTheme } from 'react-native-paper'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { RootNavigator } from '@/navigation'
+import { apiClient } from '@/services/api/client'
 
 // 自定义主题配置
 const theme = {
-  ...ReactNativePaper.DefaultTheme,
+  ...PaperDefaultTheme,
   colors: {
-    ...ReactNativePaper.DefaultTheme.colors,
+    ...PaperDefaultTheme.colors,
     primary: '#0ea5e9',
     primaryContainer: '#e0f2fe',
     secondary: '#8b5cf6',
@@ -32,6 +33,11 @@ const theme = {
 }
 
 function App(): React.JSX.Element {
+  useEffect(() => {
+    // 初始化API客户端（加载保存的服务器地址）
+    apiClient.initialize()
+  }, [])
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary>

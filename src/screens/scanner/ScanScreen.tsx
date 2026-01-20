@@ -1,22 +1,79 @@
-// 扫码屏幕（框架版本 - 实际扫码功能需要后续添加相机权限和库）
-import React from 'react'
+/**
+ * 扫码功能主屏幕
+ * 提供扫码和手动输入两种方式
+ */
+
+import React, { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { Button } from 'react-native-paper'
 import Icon from 'react-native-vector-icons/MaterialIcons'
+import { useNavigation } from '@react-navigation/native'
+import { StackNavigationProp } from '@react-navigation/stack'
+import { ManualInputDialog } from '@/components/ManualInputDialog'
+
+type RootStackParamList = {
+  QRScanner: { onCodeScanned: (code: string) => void }
+  PatientDetail: { patientId: string }
+}
+
+type ScanScreenNavigationProp = StackNavigationProp<RootStackParamList>
 
 const ScanScreen = () => {
+  const navigation = useNavigation<ScanScreenNavigationProp>()
+  const [showManualInput, setShowManualInput] = useState(false)
+
   const handleScanPress = () => {
-    // TODO: 实现扫码功能
-    // 需要集成 react-native-camera
-    Alert.alert(
-      '扫码功能',
-      '扫码功能将在后续阶段实现。\n\n需要安装 react-native-camera 并配置相机权限。'
-    )
+    // 导航到QR码扫描器
+    navigation.navigate('QRScanner', {
+      onCodeScanned: (code: string) => {
+        // 扫码成功后的处理
+        handleScannedCode(code)
+      },
+    })
+  }
+
+  const handleScannedCode = (code: string) => {
+    // TODO: 根据扫描的码内容进行相应处理
+    // 例如：查找患者、跳转到患者详情等
+    Alert.alert('扫描成功', `扫描结果：${code}`, [
+      {
+        text: '查看患者',
+        onPress: () => {
+          // 假设扫描的是患者ID或病历号
+          navigation.navigate('PatientDetail', { patientId: code })
+        },
+      },
+      {
+        text: '取消',
+        style: 'cancel',
+      },
+    ])
+  }
+
+  const handleManualInputConfirm = (medicalNo: string) => {
+    // 关闭对话框
+    setShowManualInput(false)
+
+    // TODO: 根据病历号查找患者
+    // 这里可以调用API查找患者，然后跳转到患者详情
+    Alert.alert('查找患者', `正在查找病历号：${medicalNo}`, [
+      {
+        text: '查看患者',
+        onPress: () => {
+          // 查找成功后跳转到患者详情
+          navigation.navigate('PatientDetail', { patientId: medicalNo })
+        },
+      },
+      {
+        text: '取消',
+        style: 'cancel',
+      },
+    ])
   }
 
   const handleManualInput = () => {
-    // TODO: 实现手动输入病历号功能
-    Alert.alert('手动输入', '手动输入病历号功能将在后续阶段实现。')
+    // 显示手动输入对话框
+    setShowManualInput(true)
   }
 
   return (
@@ -54,17 +111,18 @@ const ScanScreen = () => {
         {/* 使用提示 */}
         <View style={styles.tipsContainer}>
           <Text style={styles.tipsTitle}>使用提示</Text>
-          <Text style={styles.tipsText}>
-            • 确保相机权限已开启
-          </Text>
-          <Text style={styles.tipsText}>
-            • 保持二维码在取景框内
-          </Text>
-          <Text style={styles.tipsText}>
-            • 避免强光直射影响识别
-          </Text>
+          <Text style={styles.tipsText}>• 确保相机权限已开启</Text>
+          <Text style={styles.tipsText}>• 保持二维码在取景框内</Text>
+          <Text style={styles.tipsText}>• 避免强光直射影响识别</Text>
         </View>
       </View>
+
+      {/* 手动输入对话框 */}
+      <ManualInputDialog
+        visible={showManualInput}
+        onDismiss={() => setShowManualInput(false)}
+        onConfirm={handleManualInputConfirm}
+      />
     </View>
   )
 }

@@ -3,7 +3,7 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { API_CONFIG, STORAGE_KEYS } from '@/utils/constants'
-import { AsyncStorage } from '@react-native-async-storage/async-storage'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { NavigationContainerRef } from '@react-navigation/native'
 import { createLogger } from '@/utils/logger'
 import { retryWithBackoff } from '@/utils/retry'
@@ -42,6 +42,28 @@ class ApiClient {
     })
 
     this.setupInterceptors()
+  }
+
+  /**
+   * 初始化客户端（从AsyncStorage加载服务器地址）
+   */
+  async initialize() {
+    try {
+      const { getServerUrl } = await import('@/components/ServerSettingsDialog')
+      const serverUrl = await getServerUrl()
+      this.client.defaults.baseURL = serverUrl
+      logger.info('API客户端已初始化，服务器地址:', serverUrl)
+    } catch (error) {
+      logger.error('初始化API客户端失败', error)
+    }
+  }
+
+  /**
+   * 更新服务器地址
+   */
+  updateBaseUrl(url: string) {
+    this.client.defaults.baseURL = url
+    logger.info('服务器地址已更新:', url)
   }
 
   /**

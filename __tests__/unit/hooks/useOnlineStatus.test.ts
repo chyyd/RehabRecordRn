@@ -1,9 +1,6 @@
 /**
  * useOnlineStatus Hook 单元测试
- * 基于 React Native Testing Library 和 NetInfo 最佳实践
- *
- * 注意：此测试套件由于NetInfo mock配置问题暂时跳过
- * TODO: 修复mock配置以使测试通过
+ * 基于 React Native Testing Library 最佳实践
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react-native'
@@ -12,6 +9,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 // Mock @react-native-community/netinfo
 const mockFetch = jest.fn()
 const mockAddEventListener = jest.fn()
+const mockUnsubscribe = jest.fn()
 
 jest.mock('@react-native-community/netinfo', () => ({
   default: {
@@ -20,14 +18,16 @@ jest.mock('@react-native-community/netinfo', () => ({
   },
 }))
 
-// Mock syncStore (useOnlineStatus依赖它)
+// Mock syncStore (useOnlineStatus依赖it)
+const mockSetOnlineStatus = jest.fn()
+
 jest.mock('@/stores/syncStore', () => ({
   useSyncStore: () => ({
-    setOnlineStatus: jest.fn(),
+    setOnlineStatus: mockSetOnlineStatus,
   }),
 }))
 
-describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => {
+describe('useOnlineStatus Hook', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     // 默认返回在线状态
@@ -35,7 +35,8 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       isConnected: true,
       isInternetReachable: true,
     })
-    mockAddEventListener.mockReturnValue(jest.fn())
+    // 返回取消订阅函数
+    mockAddEventListener.mockReturnValue(mockUnsubscribe)
   })
 
   afterEach(() => {
@@ -51,6 +52,7 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockSetOnlineStatus).toHaveBeenCalledWith(true)
     })
 
     it('应该返回初始离线状态', async () => {
@@ -66,13 +68,16 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       })
 
       expect(result.current).toBe(false)
+      expect(mockSetOnlineStatus).toHaveBeenCalledWith(false)
     })
 
-    it('应该在网络状态变化时更新', () => {
-      const mockUnsubscribe = jest.fn()
-      mockAddEventListener.mockReturnValue(mockUnsubscribe)
-
+    it('应该在网络状态变化时更新', async () => {
       const { result } = renderHook(() => useOnlineStatus())
+
+      // 等待初始渲染
+      await waitFor(() => {
+        expect(result.current).toBeDefined()
+      })
 
       // 获取回调函数
       const listenerCallback = mockAddEventListener.mock.calls[0][0]
@@ -86,35 +91,31 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       })
 
       expect(result.current).toBe(false)
-
-      // 清理
-      act(() => {
-        // Trigger cleanup
-      })
-
-      expect(mockUnsubscribe).toHaveBeenCalled()
+      expect(mockSetOnlineStatus).toHaveBeenCalledWith(false)
     })
   })
 
   describe('网络状态监听', () => {
-    it('应该正确设置和清理事件监听器', () => {
-      const mockUnsubscribe = jest.fn()
-      mockAddEventListener.mockReturnValue(mockUnsubscribe)
-
+    it('应该正确设置和清理事件监听器', async () => {
       const { unmount } = renderHook(() => useOnlineStatus())
 
-      expect(mockAddEventListener).toHaveBeenCalled()
+      // 等待初始渲染
+      await waitFor(() => {
+        expect(mockAddEventListener).toHaveBeenCalled()
+      })
 
       unmount()
 
       expect(mockUnsubscribe).toHaveBeenCalled()
     })
 
-    it('应该处理多次状态变化', () => {
-      const mockUnsubscribe = jest.fn()
-      mockAddEventListener.mockReturnValue(mockUnsubscribe)
-
+    it('应该处理多次状态变化', async () => {
       const { result } = renderHook(() => useOnlineStatus())
+
+      // 等待初始渲染
+      await waitFor(() => {
+        expect(result.current).toBeDefined()
+      })
 
       const listenerCallback = mockAddEventListener.mock.calls[0][0]
 
@@ -145,10 +146,13 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
 
       const { result } = renderHook(() => useOnlineStatus())
 
-      // 验证错误处理（根据实际实现调整）
+      // 验证错误处理 - hook应该正常工作（使用默认值）
       await waitFor(() => {
         expect(result.current).toBeDefined()
       })
+
+      // 由于fetch失败，应该使用初始状态true
+      expect(result.current).toBe(true)
     })
 
     it('应该处理 addEventListener 错误', () => {
@@ -156,6 +160,7 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
         throw new Error('Listener error')
       })
 
+      // hook应该正常工作，不会抛出错误
       expect(() => {
         renderHook(() => useOnlineStatus())
       }).not.toThrow()
@@ -169,7 +174,8 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       const { result } = renderHook(() => useOnlineStatus())
 
       await waitFor(() => {
-        expect(result.current).toBeDefined()
+        // undefined应该使用默认值true
+        expect(result.current).toBe(true)
       })
     })
 
@@ -179,7 +185,47 @@ describe.skip('useOnlineStatus Hook (暂时跳过 - NetInfo mock问题)', () => 
       const { result } = renderHook(() => useOnlineStatus())
 
       await waitFor(() => {
-        expect(result.current).toBeDefined()
+        // null应该使用默认值true
+        expect(result.current).toBe(true)
+      })
+    })
+
+    it('应该处理 isConnected 为 undefined', async () => {
+      mockFetch.mockResolvedValue({
+        isConnected: undefined,
+        isInternetReachable: true,
+      })
+
+      const { result } = renderHook(() => useOnlineStatus())
+
+      await waitFor(() => {
+        expect(result.current).toBe(false)
+      })
+    })
+
+    it('应该处理 isInternetReachable 为 undefined', async () => {
+      mockFetch.mockResolvedValue({
+        isConnected: true,
+        isInternetReachable: undefined,
+      })
+
+      const { result } = renderHook(() => useOnlineStatus())
+
+      await waitFor(() => {
+        expect(result.current).toBe(false)
+      })
+    })
+
+    it('应该处理两个都为undefined', async () => {
+      mockFetch.mockResolvedValue({
+        isConnected: undefined,
+        isInternetReachable: undefined,
+      })
+
+      const { result } = renderHook(() => useOnlineStatus())
+
+      await waitFor(() => {
+        expect(result.current).toBe(false)
       })
     })
   })
