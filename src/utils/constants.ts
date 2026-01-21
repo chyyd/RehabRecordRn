@@ -56,7 +56,7 @@ export const API_ENDPOINTS = {
   RECORD_HISTORY: '/records/history',
 
   // 治疗项目
-  PROJECTS: '/projects',
+  PROJECTS: '/projects/my', // 获取当前用户可操作的治疗项目
 } as const
 
 // 网络状态

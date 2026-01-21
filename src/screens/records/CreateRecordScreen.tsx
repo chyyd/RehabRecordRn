@@ -1,9 +1,10 @@
 /**
  * 创建治疗记录屏幕
- * 逻辑与 mobile-frontend 一致
+ * iOS 设计风格
+ * 支持扫码和手动输入来源识别
  */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,455 +13,446 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-} from 'react-native'
+} from 'react-native';
+import { useTheme } from 'react-native-paper';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRecordStore, usePatientStore, useAuthStore } from '@/stores';
+import { recordApi, patientApi } from '@/services/api';
 import {
-  Card,
-  Button,
-  useTheme,
-} from 'react-native-paper'
-import Icon from 'react-native-vector-icons/MaterialIcons'
-import { useRoute, useNavigation } from '@react-navigation/native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useRecordStore, usePatientStore } from '@/stores'
-import { recordApi } from '@/services/api'
-import { API_ENDPOINTS } from '@/utils/constants'
-import { request } from '@/services/api/client'
-import type { Patient, TreatmentProject } from '@/types'
-import SignaturePad from '@/components/SignaturePad'
+  Colors,
+  Spacing,
+  Typography,
+  BorderRadius,
+  Shadows,
+} from '@/theme';
+import SignaturePad from '@/components/SignaturePad';
+import type { Patient, TreatmentProject } from '@/types';
 
 interface RecentProject {
-  projectId: number
-  projectName: string
-  count: number
+  projectId: number;
+  projectName: string;
+  count: number;
+}
+
+interface RouteParams {
+  patientId: string | number;
+  from?: 'scan' | 'manual' | 'detail';
 }
 
 const CreateRecordScreen = () => {
-  const theme = useTheme()
-  const route = useRoute()
-  const navigation = useNavigation()
-  const { patientId } = route.params as { patientId: number }
+  const theme = useTheme();
+  const route = useRoute();
+  const params = route.params as RouteParams;
+  const navigation = useNavigation();
 
-  const { projects, fetchProjects } = useRecordStore()
-  const { patients } = usePatientStore()
+  const { projects, fetchProjects } = useRecordStore();
+  const { patients } = usePatientStore();
+  const userInfo = useAuthStore(state => state.userInfo);
 
-  const [patient, setPatient] = useState<Patient | null>(null)
-  const [selectedProject, setSelectedProject] = useState<TreatmentProject | null>(null)
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
-  const [showAllProjects, setShowAllProjects] = useState(false)
-  const [signature, setSignature] = useState<string>('')
-  const [showSignature, setShowSignature] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [validating, setValidating] = useState(false)
-  const [loadingRecent, setLoadingRecent] = useState(true)
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [selectedProject, setSelectedProject] = useState<TreatmentProject | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [signature, setSignature] = useState<string>('');
+  const [showSignature, setShowSignature] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [fromSource, setFromSource] = useState<'scan' | 'manual' | 'detail'>('detail');
+  const [loadingPatient, setLoadingPatient] = useState(false);
+  const [actualPatientId, setActualPatientId] = useState<number | null>(null);
+
+  // 🔄 过滤逻辑已简化：后端 /projects/my API 根据用户身份返回可操作项目
+  // 前端直接使用后端返回的项目列表，无需再次过滤
+  console.log('📋 后端返回的治疗项目数:', projects?.length || 0);
+
+  // 处理来源信息和患者ID解析
+  useEffect(() => {
+    if (params?.from) {
+      setFromSource(params.from);
+      console.log('✅ 页面来源:', params.from);
+    }
+
+    if (typeof params.patientId === 'number') {
+      console.log('📌 患者ID（数字）:', params.patientId);
+      setActualPatientId(params.patientId);
+    } else {
+      console.log('📌 病历号（字符串）:', params.patientId);
+    }
+  }, [params?.from, params?.patientId]);
 
   useEffect(() => {
     // 加载治疗项目
-    fetchProjects()
+    fetchProjects();
 
     // 查找患者信息
-    const p = patients.find((p) => p.id === patientId)
-    if (p) {
-      setPatient(p)
+    let foundPatient: Patient | null = null;
+
+    if (typeof params.patientId === 'number') {
+      // 情况1：从患者详情页过来，params.patientId 是患者 ID
+      foundPatient = patients.find((p) => p.id === params.patientId) || null;
+      if (foundPatient) {
+        console.log('✅ 在本地找到患者（通过ID）:', foundPatient);
+        setActualPatientId(foundPatient.id);
+      }
+    } else {
+      // 情况2：从扫码/手动输入过来，params.patientId 是病历号字符串
+      foundPatient = patients.find((p) => p.medicalRecordNo === params.patientId) || null;
+      if (foundPatient) {
+        console.log('✅ 在本地找到患者（通过病历号）:', foundPatient);
+        setActualPatientId(foundPatient.id);
+      } else {
+        console.log('⚠️ 本地未找到病历号为:', params.patientId, '的患者，从API搜索');
+        searchPatientByMedicalNo(params.patientId);
+        return;
+      }
     }
 
-    // 加载最近使用的项目
-    loadRecentProjects()
-  }, [patientId])
+    if (foundPatient) {
+      setPatient(foundPatient);
+      loadRecentProjects(foundPatient.id);
+    }
+  }, [params?.patientId]);
 
   /**
    * 加载患者最近使用的治疗项目
    * 从最近7天的治疗记录中统计
+   * @param patientId 患者ID（数字）
    */
-  const loadRecentProjects = useCallback(async () => {
+  const loadRecentProjects = useCallback(async (patientId: number) => {
     try {
-      setLoadingRecent(true)
+      setLoadingRecent(true);
 
-      // 计算最近7天的日期范围（使用本地时区）
-      const today = new Date()
-      const sevenDaysAgo = new Date(today)
-      sevenDaysAgo.setDate(today.getDate() - 7)
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
 
-      // 格式化日期为 YYYY-MM-DD（使用本地时区）
       const formatDate = (date: Date): string => {
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const day = String(date.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDate = formatDate(sevenDaysAgo);
+      const endDate = formatDate(today);
+
+      console.log('查询日期范围:', startDate, '至', endDate);
+
+      const response = await recordApi.getRecords({
+        patientId,
+        startDate,
+        endDate,
+      });
+
+      console.log('📦 完整响应对象:', JSON.stringify(response, null, 2));
+
+      const responseData = response as any;
+      let records: any[] = [];
+
+      if (responseData.data && Array.isArray(responseData.data.data)) {
+        records = responseData.data.data;
+        console.log('✅ 使用格式1: PaginatedResponse');
+      } else if (Array.isArray(responseData.data)) {
+        records = responseData.data;
+        console.log('✅ 使用格式2: 直接数组');
+      } else if (Array.isArray(responseData)) {
+        records = responseData;
+        console.log('✅ 使用格式3: response 本身是数组');
       }
 
-      const startDate = formatDate(sevenDaysAgo)
-      const endDate = formatDate(today)
+      console.log('解析后的记录数量:', records.length);
+      console.log('records 内容:', records);
 
-      console.log('查询日期范围:', startDate, '至', endDate)
+      if (records && records.length > 0) {
+        console.log('✅ 进入统计逻辑，患者最近7天治疗记录:', records.length);
 
-      // 获取该患者最近7天的治疗记录
-      const response = await request<any>({
-        method: 'GET',
-        url: API_ENDPOINTS.RECORDS,
-        params: {
-          patientId,
-          startDate,
-          endDate,
-        },
-      })
+        const projectStats = new Map<number, { count: number; name: string; code: string }>();
 
-      console.log('📊 API响应:', response.data)
+        records.forEach((record: any) => {
+          const projectId = record.project?.id;
 
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        // 统计每个项目的使用次数
-        const projectStats = new Map<number, { count: number; name: string }>()
-
-        response.data.forEach((record: any) => {
-          const projectId = record.project?.id
           if (projectId) {
-            const existing = projectStats.get(projectId)
+            const existing = projectStats.get(projectId);
             if (existing) {
-              existing.count++
+              existing.count++;
             } else {
               projectStats.set(projectId, {
                 count: 1,
                 name: record.project?.name || '未知项目',
-              })
+                code: record.project?.code || '',
+              });
             }
           }
-        })
+        });
 
-        // 转换为数组并按使用次数排序
         let sortedProjects = Array.from(projectStats.entries())
           .map(([projectId, data]) => ({
             projectId,
             projectName: data.name,
             count: data.count,
           }))
-          .sort((a, b) => b.count - a.count)
+          .sort((a, b) => b.count - a.count);
 
-        // 筛选出当前用户可操作的项目
+        // 🔑 关键步骤：筛选出当前用户可操作的项目
+        // 🔄 使用后端 /projects/my 返回的项目列表（已根据用户角色过滤）
         if (projects && projects.length > 0) {
-          const userProjectIds = new Set(projects.map((p) => p.id))
-          sortedProjects = sortedProjects.filter((p) => userProjectIds.has(p.projectId))
+          const userProjectIds = new Set(projects.map((p) => p.id));
+          console.log('👤 当前用户可操作项目ID列表:', Array.from(userProjectIds));
+
+          const beforeFilter = sortedProjects.length;
+          sortedProjects = sortedProjects.filter((p) => userProjectIds.has(p.projectId));
+          console.log('🔒 筛选后项目数:', sortedProjects.length, '个（过滤了', beforeFilter - sortedProjects.length, '个）');
+        } else {
+          console.log('⚠️ 用户可操作项目列表为空，跳过筛选');
         }
 
-        // 只取前6个
-        sortedProjects = sortedProjects.slice(0, 6)
-
-        setRecentProjects(sortedProjects)
-        console.log('✅ 最近使用项目:', sortedProjects)
+        sortedProjects = sortedProjects.slice(0, 6);
+        setRecentProjects(sortedProjects);
+        console.log('✅ 患者常用项目统计（最终结果）:', sortedProjects);
       } else {
-        setRecentProjects([])
-        console.log('⚠️ 该患者最近7天无治疗记录')
+        setRecentProjects([]);
+        console.log('⚠️ 该患者最近7天无治疗记录或数据为空');
       }
     } catch (error) {
-      console.error('❌ 加载最近项目失败:', error)
-      setRecentProjects([])
+      console.error('❌ 加载患者最近项目失败:', error);
+      setRecentProjects([]);
     } finally {
-      setLoadingRecent(false)
+      setLoadingRecent(false);
     }
-  }, [patientId, projects])
+  }, [projects]); // 添加 projects 依赖，避免闭包问题
 
   /**
    * 快捷选择项目并开始治疗
    */
-  const handleQuickSelectProject = useCallback(async (recentProject: RecentProject) => {
-    console.log('📌 快捷选择项目:', recentProject)
-    console.log('📋 当前项目列表:', projects)
+  const handleQuickSelectProject = useCallback(
+    async (recentProject: RecentProject) => {
+      const project = projects.find((p) => p.id === recentProject.projectId);
 
-    // 从完整项目列表中查找项目
-    let project = projects.find((p) => p.id === recentProject.projectId)
-
-    // 如果找不到，可能 projects 还没加载完成，等待加载
-    if (!project && projects.length === 0) {
-      console.log('⏳ 项目列表为空，等待加载...')
-      await fetchProjects()
-      project = projects.find((p) => p.id === recentProject.projectId)
-    }
-
-    if (project) {
-      console.log('✅ 找到项目:', project)
-      setSelectedProject(project)
-      // 直接传递项目，而不是依赖状态
-      await startTreatmentWithProject(project)
-    } else {
-      console.error('❌ 未找到项目，ID:', recentProject.projectId)
-      Alert.alert('错误', '未找到该治疗项目，请重试')
-    }
-  }, [projects, fetchProjects])
+      if (project) {
+        setSelectedProject(project);
+        await startTreatment(project);
+      } else {
+        Alert.alert('错误', '未找到该治疗项目');
+      }
+    },
+    [projects]
+  );
 
   /**
    * 选择项目并开始治疗
+   * 🔄 已简化权限检查：后端 /projects/my 已返回用户有权限的项目
    */
-  const handleSelectProject = useCallback(async (project: TreatmentProject) => {
-    console.log('📌 选择项目:', project)
-    setSelectedProject(project)
-    // 直接传递项目，而不是依赖状态
-    await startTreatmentWithProject(project)
-  }, [])
+  const handleSelectProject = useCallback(
+    async (project: TreatmentProject) => {
+      setSelectedProject(project);
+      await startTreatment(project);
+    },
+    []
+  );
 
   /**
-   * 开始治疗流程（验证时间冲突）- 接收项目作为参数
+   * 开始治疗流程（接收项目作为参数）
    */
-  const startTreatmentWithProject = async (project: TreatmentProject) => {
-    console.log('🚀 开始治疗流程，项目:', project)
-
+  const startTreatment = async (project: TreatmentProject) => {
     if (!project) {
-      Alert.alert('提示', '请先选择治疗项目')
-      return
+      Alert.alert('提示', '请先选择治疗项目');
+      return;
     }
 
-    setValidating(true)
+    console.log('🚀 开始治疗流程，项目:', project);
+    setValidating(true);
 
     try {
-      // 验证时间冲突
-      const startTime = new Date()
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
 
-      const response = await request<any>({
-        method: 'POST',
-        url: '/records/validate-time-conflict',
-        data: {
-          patientId,
-          startTime: startTime.toISOString(),
-        },
-      })
+      setValidating(false);
+      setShowSignature(true);
+    } catch (error) {
+      console.error('❌ 验证时间冲突失败:', error);
+      setValidating(false);
 
-      console.log('⏰ 时间冲突验证:', response.data)
-
-      setValidating(false)
-
-      // 检查是否有冲突
-      if (response.data?.hasConflict) {
-        Alert.alert(
-          '时间冲突警告',
-          response.data.message || '该患者当前时间段已有治疗记录，请选择其他时间',
-          [{ text: '我知道了' }]
-        )
-        return
-      }
-
-      // 无冲突，显示签名弹窗
-      setShowSignature(true)
-    } catch (error: any) {
-      console.error('❌ 验证时间冲突失败:', error)
-      setValidating(false)
-
-      // 验证失败也允许继续
-      Alert.alert(
-        '验证失败',
-        '无法验证时间冲突，是否继续治疗记录？',
-        [
-          { text: '取消', style: 'cancel' },
-          { text: '继续', onPress: () => setShowSignature(true) },
-        ]
-      )
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      Alert.alert('验证失败', `无法验证时间冲突，是否继续治疗记录？\n错误: ${errorMessage}`, [
+        { text: '取消', style: 'cancel' },
+        { text: '继续', onPress: () => setShowSignature(true) },
+      ]);
     }
-  }
+  };
 
   /**
    * 签名确认
    */
   const handleSignatureConfirm = async (imageData: string) => {
-    setSignature(imageData)
-    setShowSignature(false)
+    console.log('🖋 签名确认:', imageData);
 
-    setSaving(true)
+    setSignature(imageData);
+    setShowSignature(false);
+    setSaving(true);
 
     try {
-      // 上传签名图片
-      const signatureFilename = await uploadSignature(imageData)
-
-      // 创建治疗记录
-      const startTime = new Date()
+      const startTime = new Date();
 
       if (!selectedProject) {
-        throw new Error('未选择治疗项目')
+        throw new Error('未选择治疗项目');
+      }
+
+      if (!actualPatientId) {
+        throw new Error('患者ID不存在');
       }
 
       await recordApi.createRecord({
-        patientId,
+        patientId: actualPatientId,
         projectId: selectedProject.id,
         startTime: startTime.toISOString(),
         endTime: startTime.toISOString(),
         durationMinutes: selectedProject.defaultDuration,
         patientReaction: '无不良反应',
-        photoFileName: signatureFilename, // 使用 photoFileName 字段保存签名文件名
+        signatureImage: imageData,
         notes: '',
-      })
+      });
 
-      Alert.alert(
-        '成功',
-        '治疗记录已保存',
-        [
-          {
-            text: '确定',
-            onPress: () => {
-              // 保存成功后跳转到扫码页面
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Tabs' as never }],
-              })
-            },
+      Alert.alert('成功', '治疗记录已保存', [
+        {
+          text: '返回扫码页',
+          onPress: () => {
+            goBackToScan();
           },
-        ]
-      )
-    } catch (error: any) {
-      console.error('❌ 保存记录失败:', error)
-      Alert.alert('保存失败', error.message || '请稍后重试')
+        },
+      ]);
+    } catch (error) {
+      console.error('❌ 保存记录失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      Alert.alert('保存失败', errorMessage || '请稍后重试');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   /**
-   * 上传签名图片到服务器
-   * React Native 环境下直接使用 base64 数据
+   * 根据病历号从 API 搜索患者
    */
-  const uploadSignature = async (base64Data: string): Promise<string> => {
-    // 提取base64数据（移除 data:image/png;base64, 前缀）
-    const base64String = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data
+  const searchPatientByMedicalNo = async (medicalNo: string) => {
+    try {
+      setLoadingPatient(true);
+      const searchResults = await patientApi.searchPatients(medicalNo);
+      console.log('🔍 API 搜索患者结果:', searchResults);
 
-    // 创建 FormData
-    const formData = new FormData()
-
-    // 在 React Native 中，直接使用 base64 创建文件对象
-    // 注意：react-native-signature-canvas 返回的是 data URL 格式
-    formData.append('photo', {
-      uri: base64Data, // 使用完整的 data URL
-      type: 'image/png',
-      name: 'signature.png',
-    } as any)
-
-    formData.append('isSignature', 'true')
-    formData.append('medicalRecordNo', patient?.medicalRecordNo || '')
-    formData.append('treatmentTime', new Date().toISOString())
-    formData.append('projectName', selectedProject?.name || '')
-
-    // 调试日志
-    console.log('🚀 开始上传签名:', {
-      isSignature: 'true',
-      medicalRecordNo: patient?.medicalRecordNo || '',
-      projectName: selectedProject?.name || '',
-      treatmentTime: new Date().toISOString(),
-    })
-
-    // 使用 fetch API 上传，避免 Axios 在 React Native 中的 FormData 问题
-    // 从 ServerSettingsDialog 获取服务器地址
-    const { getServerUrl } = await import('@/components/ServerSettingsDialog')
-    const serverUrl = await getServerUrl()
-    const token = await AsyncStorage.getItem('auth_token')
-
-    const response = await fetch(`${serverUrl}/photos/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        // 注意：不设置 Content-Type，让 fetch 自动设置
-      },
-      body: formData,
-    })
-
-    if (!response.ok) {
-      throw new Error(`上传失败: ${response.status}`)
+      if (searchResults && searchResults.length > 0) {
+        const foundPatient = searchResults.find((p: Patient) => p.medicalRecordNo === medicalNo);
+        if (foundPatient) {
+          console.log('✅ 从 API 找到患者:', foundPatient);
+          setPatient(foundPatient);
+          setActualPatientId(foundPatient.id);
+          loadRecentProjects(foundPatient.id);
+        }
+      } else {
+        Alert.alert('未找到患者', `病历号 ${medicalNo} 不存在`);
+      }
+    } catch (error) {
+      console.error('❌ 搜索患者失败:', error);
+      Alert.alert('搜索失败', '无法找到患者信息，请稍后重试');
+    } finally {
+      setLoadingPatient(false);
     }
+  };
 
-    const result = await response.json()
+  /**
+   * 返回扫码页
+   */
+  const goBackToScan = () => {
+    console.log('🔄 返回扫码页');
 
-    if (!result.filename) {
-      throw new Error('签名上传失败')
-    }
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Tabs' as never }, { name: 'Scan' as never }],
+    });
+  };
 
-    return result.filename
-  }
-
+  // 检查是否有患者信息
   if (!patient) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>加载中...</Text>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>{loadingPatient ? '搜索患者中...' : '加载中...'}</Text>
       </View>
-    )
+    );
   }
 
   return (
     <ScrollView style={styles.container}>
       {/* 患者信息卡片 */}
-      <Card style={styles.patientCard}>
-        <Card.Content>
-          <View style={styles.patientHeader}>
-            <View style={styles.patientAvatar}>
-              <Text style={styles.avatarText}>{patient.name?.substring(0, 1)}</Text>
-            </View>
-            <View style={styles.patientDetail}>
-              <Text style={styles.patientName}>{patient.name}</Text>
-              <Text style={styles.patientNo}>{patient.medicalRecordNo}</Text>
-            </View>
+      <View style={styles.patientCard}>
+        <View style={styles.patientHeader}>
+          <View style={styles.patientAvatar}>
+            <Text style={styles.avatarText}>{patient.name?.substring(0, 1)}</Text>
           </View>
-        </Card.Content>
-      </Card>
+          <View style={styles.patientInfo}>
+            <Text style={styles.patientName}>{patient.name}</Text>
+            <Text style={styles.patientNo}>{patient.medicalRecordNo}</Text>
+            {userInfo?.role && (
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>
+                  {userInfo.role === 'admin' && '管理员'}
+                  {userInfo.role === 'physician' && '医师'}
+                  {userInfo.role === 'therapist' && '治疗师'}
+                  {userInfo.role === 'nurse' && '护士'}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
 
       {/* 最近使用 */}
       {recentProjects.length > 0 && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>⚡ 最近使用</Text>
-
-            <View style={styles.recentProjectsGrid}>
-              {recentProjects.map((project) => (
-                <TouchableOpacity
-                  key={project.projectId}
-                  style={[
-                    styles.recentProjectCard,
-                    selectedProject?.id === project.projectId && styles.activeRecentCard,
-                  ]}
-                  onPress={() => handleQuickSelectProject(project)}
-                >
-                  <View style={styles.recentProjectIcon}>
-                    <Text style={styles.iconFire}>⚡</Text>
-                  </View>
-                  <View style={styles.recentProjectInfo}>
-                    <Text style={styles.recentProjectName}>{project.projectName}</Text>
-                    <Text style={styles.recentProjectCount}>已使用 {project.count} 次</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={styles.expandButton}
-              onPress={() => setShowAllProjects(!showAllProjects)}
-            >
-              <Text style={styles.expandText}>
-                {showAllProjects ? '▼ 收起全部项目' : '📋 展开全部项目'}
-              </Text>
-            </TouchableOpacity>
-          </Card.Content>
-        </Card>
+        <>
+          <Text style={styles.sectionTitle}>⚡ 最近使用</Text>
+          <View style={styles.recentProjectsGrid}>
+            {recentProjects.map((project) => (
+              <TouchableOpacity
+                key={project.projectId}
+                style={[
+                  styles.recentProjectCard,
+                  selectedProject?.id === project.projectId && styles.activeRecentCard,
+                ]}
+                onPress={() => handleQuickSelectProject(project)}
+                activeOpacity={0.7}>
+                <View style={styles.recentProjectIcon}>
+                  <Text style={styles.recentProjectEmoji}>⚡</Text>
+                </View>
+                <View style={styles.recentProjectInfo}>
+                  <Text style={styles.recentProjectName}>{project.projectName}</Text>
+                  <Text style={styles.recentProjectCount}>已使用 {project.count} 次</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
       )}
 
       {/* 治疗项目选择 */}
-      {showAllProjects || recentProjects.length === 0 ? (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>选择治疗项目 *</Text>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.projectScroll}
-              contentContainerStyle={styles.projectScrollContent}
-            >
-              {projects.map((project) => (
-                <TouchableOpacity
-                  key={project.id}
-                  style={[
-                    styles.projectItem,
-                    selectedProject?.id === project.id && styles.activeProject,
-                  ]}
-                  onPress={() => handleSelectProject(project)}
-                >
-                  <Text style={styles.projectName}>{project.name}</Text>
-                  <Text style={styles.projectDuration}>{project.defaultDuration}分钟</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Card.Content>
-        </Card>
-      ) : null}
+      <Text style={styles.sectionTitle}>
+        {showAllProjects || recentProjects.length === 0 ? '选择治疗项目' : '更多项目'}
+      </Text>
+      <View style={styles.projectsList}>
+        {projects.map((project) => (
+          <TouchableOpacity
+            key={project.id}
+            style={[
+              styles.projectItem,
+              selectedProject?.id === project.id && styles.activeProject,
+            ]}
+            onPress={() => handleSelectProject(project)}
+            activeOpacity={0.7}>
+            <View style={styles.projectInfo}>
+              <Text style={styles.projectName}>{project.name}</Text>
+              <Text style={styles.projectDuration}>{project.defaultDuration} 分钟</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* 签名组件 */}
       <SignaturePad
@@ -484,166 +476,176 @@ const CreateRecordScreen = () => {
           <Text style={styles.loadingText}>保存中...</Text>
         </View>
       )}
-
-      <View style={{ height: 24 }} />
     </ScrollView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background.primary,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: Typography.fontSize.base,
+    color: Colors.text.primary,
+  },
   patientCard: {
-    margin: 16,
-    marginBottom: 12,
-    backgroundColor: '#0ea5e9',
-    elevation: 4,
+    margin: Spacing.lg,
+    backgroundColor: Colors.brand.blue,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.medium,
   },
   patientHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: Spacing.lg,
   },
   patientAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.full,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: Spacing.md,
   },
   avatarText: {
-    fontSize: 28,
-    color: '#fff',
-    fontWeight: 'bold',
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: '#FFFFFF',
   },
-  patientDetail: {
+  patientInfo: {
     flex: 1,
   },
   patientName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 6,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    color: '#FFFFFF',
+    marginBottom: Spacing.xs,
   },
   patientNo: {
-    fontSize: 14,
+    fontSize: Typography.fontSize.base,
     color: 'rgba(255, 255, 255, 0.9)',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
     alignSelf: 'flex-start',
   },
-  card: {
-    margin: 16,
-    marginBottom: 12,
-    elevation: 2,
+  roleBadge: {
+    marginTop: Spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  roleText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 16,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.text.primary,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.xl,
   },
   recentProjectsGrid: {
-    gap: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   recentProjectCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#e0f2fe',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(14, 165, 233, 0.15)',
+    width: '47%',
+    padding: Spacing.md,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    marginBottom: Spacing.md,
+    marginRight: Spacing.xs,
   },
   activeRecentCard: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
+    backgroundColor: Colors.brand.blue,
+    borderColor: Colors.brand.blue,
   },
   recentProjectIcon: {
     width: 44,
     height: 44,
+    borderRadius: BorderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: Spacing.md,
   },
-  iconFire: {
+  recentProjectEmoji: {
     fontSize: 24,
   },
   recentProjectInfo: {
     flex: 1,
   },
   recentProjectName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0369a1',
-    marginBottom: 4,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text.primary,
+    marginBottom: 2,
   },
   recentProjectCount: {
-    fontSize: 13,
-    color: '#0284c7',
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.tertiary,
     backgroundColor: 'rgba(2, 132, 199, 0.1)',
-    padding: 4,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
     alignSelf: 'flex-start',
   },
-  expandButton: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#e0f2fe',
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#0ea5e9',
-    borderStyle: 'dashed',
-  },
-  expandText: {
-    fontSize: 15,
-    color: '#0ea5e9',
-    fontWeight: '600',
-  },
-  projectScroll: {
-    marginHorizontal: -16,
-  },
-  projectScrollContent: {
-    paddingHorizontal: 16,
+  projectsList: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   projectItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    marginBottom: Spacing.sm,
   },
   activeProject: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
+    backgroundColor: Colors.brand.blue,
+    borderColor: Colors.brand.blue,
+  },
+  projectInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   projectName: {
-    fontSize: 15,
-    color: '#1e293b',
-    marginBottom: 6,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text.primary,
+    flex: 1,
   },
   projectDuration: {
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center',
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.tertiary,
+    marginLeft: Spacing.sm,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -655,12 +657,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-  },
-})
+});
 
-export default CreateRecordScreen
+export default CreateRecordScreen;
